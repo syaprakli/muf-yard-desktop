@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Müf.Yard</title>
+    <!-- Google Fonts: Inter for clean, modern look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lato:wght@400;700&family=Open+Sans:wght@400;600&family=Roboto:wght@400;500;700&family=Playfair+Display:wght@700&family=Patrick+Hand&family=Merriweather:wght@300;400;700&family=Ubuntu+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <!-- Material Icons (Rounded) -->
+    <!-- Material Icons (Rounded) -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <!-- CryptoJS for Data Encryption -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- Apple & Favicon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="logo.png">
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="icon" type="image/x-icon" href="icon.ico">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Chart.js for statistics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- SheetJS for Excel Reading (Local & UMD Fix) -->
+    <script>
+        // Electron ortamında harici scriptlerin window'a yazmasını sağlamak için module/exports'u gizliyoruz
+        if (typeof module === 'object') { window.module = module; module = undefined; }
+        if (typeof exports === 'object') { window.exports = exports; exports = undefined; }
+    </script>
+    <script src="libs/xlsx.full.min.js"></script>
+    <script>
+        // Geri yüklüyoruz
+        if (window.module) module = window.module;
+        if (window.exports) exports = window.exports;
+    </script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <span class="material-icons-round brand-icon">verified_user</span>
+                <div class="brand-text">
+                    <h1>Müf.Yard</h1>
+                    <span class="subtitle" style="font-size: 0.65rem; letter-spacing: 0.5px; color: #fff;">Dijital
+                        Müfettiş
+                        Yardımcısı</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-view="dashboard">
+                    <span class="material-icons-round">dashboard</span>
+                    <span>Genel Bakış</span>
+                </button>
+                <button class="nav-item" data-view="reports">
+                    <span class="material-icons-round">description</span>
+                    <span>Görevler</span>
+                </button>
+                <button class="nav-item" data-view="audit">
+                    <span class="material-icons-round">rule</span>
+                    <span>Denetim Formu</span>
+                </button>
+                <button class="nav-item" data-view="tasks">
+                    <span class="material-icons-round">check_circle</span>
+                    <span>Yapılacaklar</span>
+                </button>
+                <button class="nav-item" data-view="calendar">
+                    <span class="material-icons-round">calendar_month</span>
+                    <span>Takvim</span>
+                </button>
+                <button class="nav-item" data-view="notes">
+                    <span class="material-icons-round">edit_note</span>
+                    <span>Hızlı Notlar</span>
+                </button>
+                <button class="nav-item" data-view="contacts">
+                    <span class="material-icons-round">contacts</span>
+                    <span>Rehber</span>
+                </button>
+                <button class="nav-item" data-view="files">
+                    <span class="material-icons-round">folder_shared</span>
+                    <span>Dosyalarım</span>
+                </button>
+                <div style="height:1px; background:rgba(255,255,255,0.1); margin:0.5rem 1rem;"></div>
+                <button class="nav-item" data-view="settings">
+                    <span class="material-icons-round">settings</span>
+                    <span>Ayarlar</span>
+                </button>
+            </nav>
+
+            <div style="margin-top:auto; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.1);">
+                <h5
+                    style="font-size:0.7rem; color:rgba(255,255,255,0.5); padding-left:0.75rem; text-transform:uppercase; margin-bottom:0.5rem;">
+                    Hızlı Erişim</h5>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.25rem;">
+                    <a href="https://www.mevzuat.gov.tr" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">gavel</span>
+                        <span>Mevzuat</span>
+                    </a>
+                    <a href="https://gsb.gov.tr/tr/sayfa/36-mevzuat#!" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">account_balance</span>
+                        <span>GSB Mevzuat</span>
+                    </a>
+                    <a href="https://belgenet.gsb.gov.tr/" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">folder_shared</span>
+                        <span>EBYS</span>
+                    </a>
+                    <a href="https://www.resmigazete.gov.tr" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">article</span>
+                        <span>Resmi Gazete</span>
+                    </a>
+                    <a href="https://eposta.gsb.gov.tr/" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">email</span>
+                        <span>E-Posta</span>
+                    </a>
+                    <a href="https://kurumsal.gsb.gov.tr/login" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">login</span>
+                        <span>Kurumsal</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="user-profile">
+                <!-- Gelecekte kullanıcı ayarları buraya gelebilir -->
+                <div class="theme-toggle" id="about-btn"
+                    onclick="document.getElementById('about-modal').style.display='flex'" title="Hakkında">
+                    <span class="material-icons-round">info</span>
+                </div>
+                <div class="theme-toggle" id="theme-toggle-btn" onclick="ThemeManager.toggle()" title="Karanlık Mod">
+                    <span class="material-icons-round">dark_mode</span>
+                </div>
+                <div class="theme-toggle" onclick="StorageManager.exportData()" title="Yedek Al (İndir)">
+                    <span class="material-icons-round">download</span>
+                </div>
+                <div class="theme-toggle" onclick="document.getElementById('import-file').click()"
+                    title="Yedeği Geri Yükle">
+                    <span class="material-icons-round">upload</span>
+                </div>
+                <input type="file" id="import-file" style="display:none;" onchange="handleFileImport(this)">
+                <div class="theme-toggle" onclick="AuthManager.logout()" title="Çıkış Yap" style="color:#f87171;">
+                    <span class="material-icons-round">logout</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <h2>
+                    <span id="page-title">Genel Bakış</span>
+                    <span id="current-date"
+                        style="font-size:0.9rem; color:var(--text-secondary); margin-left:1rem; font-weight:normal;"></span>
+                </h2>
+                <div class="header-actions">
+                    <!-- Gelecekte bildirimler vb. -->
+                </div>
+            </header>
+
+            <div id="content-area" class="content-area">
+                <!-- Dynamic Content Here -->
+
+                <!-- Dashboard Template (Initial View) -->
+                <div class="dashboard-grid">
+                    <div class="stat-card">
+                        <div class="icon-box warning">
+                            <span class="material-icons-round">priority_high</span>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Acil Görevler</span>
+                            <span class="stat-value">3</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon-box info">
+                            <span class="material-icons-round">folder</span>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Aktif Denetimler</span>
+                            <span class="stat-value">5</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon-box success">
+                            <span class="material-icons-round">task_alt</span>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Bu Ay Tamamlanan</span>
+                            <span class="stat-value">12</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-container">
+                    <div class="section-header">
+                        <h3>Bekleyen İşler</h3>
+                    </div>
+                    <ul class="task-list-preview">
+                        <!-- JS ile doldurulacak -->
+                        <li class="empty-state">Henüz bekleyen görev yok.</li>
+                    </ul>
+                </div>
+
+            </div>
+
+            <!-- Audit Form View -->
+            <div id="view-audit" class="view-section" style="display:none;">
+                <div class="header-actions" style="justify-content:space-between; margin-bottom:1rem;">
+                    <h3>Denetim Formu</h3>
+                    <div style="display:flex; gap:0.5rem;">
+                        <button class="btn btn-outline" onclick="AuditManager.loadForm()">
+                            <span class="material-icons-round">refresh</span> Yenile
+                        </button>
+                        <button class="btn btn-primary" onclick="AuditManager.saveState()">
+                            <span class="material-icons-round">save</span> Kaydet
+                        </button>
+                    </div>
+                </div>
+                <div id="audit-form-container" class="card"
+                    style="padding: 0; max-height: calc(100vh - 180px); overflow-y: auto;">
+                    <!-- Audit items will be rendered here -->
+                    <div class="empty-state">
+                        <span class="material-icons-round"
+                            style="font-size:3rem; color:var(--text-muted);">fact_check</span>
+                        <p>Denetim formu yükleniyor veya bulunamadı.</p>
+                        <button class="btn btn-primary" onclick="AuditManager.loadForm()" style="margin-top:1rem;">Formu
+                            Yükle</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+
+    <!-- Login Overlay -->
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="login-overlay" style="display:flex;">
+        <div class="auth-card">
+            <!-- LEFT SIDEBAR -->
+            <div class="login-sidebar">
+                <img src="logo.png" alt="Müf.Yard Logo" style="width: 100%; height: auto; display: block;">
+            </div>
+
+            <!-- RIGHT CONTENT -->
+            <div class="login-main">
+                <!-- 1. Kayıt / Kurulum Ekranı -->
+                <div id="auth-register" class="auth-screen">
+                    <h3>İlk Kurulum</h3>
+                    <p class="text-sm" style="margin-bottom:1rem;">Hoşgeldiniz! Başlamak için profilinizi oluşturun.</p>
+
+                    <div class="form-group">
+                        <label>Ad Soyad / Ünvan</label>
+                        <input type="text" id="reg-fullname" placeholder="Örn: Ahmet Yılmaz">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Kullanıcı Adı</label>
+                        <input type="text" id="reg-username" placeholder="Giriş için kullanılacak">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Şifre</label>
+                        <input type="password" id="reg-password" placeholder="Güvenli bir şifre">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Güvenlik Sorusu</label>
+                        <input type="text" id="reg-question" placeholder="Örn: İlk evcil hayvanım?">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Güvenlik Cevabı</label>
+                        <input type="text" id="reg-answer" placeholder="Cevabınız">
+                    </div>
+
+                    <button class="btn btn-primary" style="width:100%; margin-top:1rem;"
+                        onclick="AuthManager.register()">
+                        Kurulumu Tamamla
+                    </button>
+                </div>
+
+                <!-- 2. Giriş Ekranı -->
+                <div id="auth-login" class="auth-screen" style="display:none;">
+                    <h3>Giriş Yap</h3>
+                    <p class="text-sm" style="margin-bottom:1rem; color:var(--text-secondary);">Devam etmek için
+                        şifrenizi girin.</p>
+
+                    <div class="form-group">
+                        <label>Kullanıcı Adı</label>
+                        <input type="text" id="login-username">
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label>Şifre</label>
+                        <input type="password" id="login-password" onkeypress="AuthManager.handleKey(event, 'login')">
+                    </div>
+
+                    <div id="login-error"
+                        style="color:var(--danger); font-size:0.85rem; display:none; margin-bottom:1rem;"></div>
+
+                    <button class="btn btn-primary" style="width:100%; margin-top: 1.5rem;"
+                        onclick="AuthManager.login()">
+                        Giriş Yap
+                    </button>
+
+                    <div style="margin-top:1rem; text-align:center;">
+                        <a href="#" onclick="AuthManager.showScreen('forgot')"
+                            style="font-size:0.85rem; color:var(--primary-color); text-decoration:none;">Şifremi
+                            Unuttum</a>
+                    </div>
+                </div>
+
+                <!-- 3. Şifremi Unuttum Ekranı -->
+                <div id="auth-forgot" class="auth-screen" style="display:none;">
+                    <h3>Şifre Yenileme</h3>
+
+                    <div id="forgot-step-1">
+                        <p class="text-sm" style="margin-bottom:1rem;">Kullanıcı adınızı girin.</p>
+                        <div class="form-group">
+                            <label>Kullanıcı Adı</label>
+                            <input type="text" id="forgot-username">
+                        </div>
+                        <button class="btn btn-primary" style="width:100%; margin-top:1rem;"
+                            onclick="AuthManager.checkRecoveryUser()">
+                            Devam Et
+                        </button>
+                        <div style="margin-top:1rem; text-align:center;">
+                            <a href="#" onclick="AuthManager.showScreen('login')"
+                                style="font-size:0.85rem; color:var(--text-secondary); text-decoration:none;">Girişe
+                                Dön</a>
+                        </div>
+                    </div>
+
+                    <div id="forgot-step-2" style="display:none;">
+                        <p class="text-sm" style="margin-bottom:1rem;">Güvenlik sorusunu cevaplayın.</p>
+
+                        <div class="form-group">
+                            <label id="recovery-question-display"
+                                style="font-weight:bold; color:var(--primary-color);"></label>
+                            <input type="text" id="forgot-answer" placeholder="Cevabınız">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Yeni Şifre</label>
+                            <input type="password" id="new-password">
+                        </div>
+
+                        <button class="btn btn-primary" style="width:100%; margin-top:1rem;"
+                            onclick="AuthManager.resetPassword()">
+                            Şifreyi Güncelle
+                        </button>
+                        <div style="margin-top:1rem; text-align:center;">
+                            <a href="#" onclick="AuthManager.showScreen('login')"
+                                style="font-size:0.85rem; color:var(--text-secondary); text-decoration:none;">İptal</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Note Modal -->
+    <div id="note-modal" class="login-overlay" style="display:none; z-index:10000;">
+        <div class="login-card" style="max-width:400px; padding:1.5rem;">
+            <h3 id="note-modal-date" style="margin-bottom:1rem; color:var(--primary-color);">Not Ekle</h3>
+            <textarea id="note-modal-input" rows="4"
+                style="width:100%; padding:0.8rem; border:1px solid #e2e8f0; border-radius:8px; resize:vertical; margin-bottom:1rem;"
+                placeholder="Notunuzu buraya yazın..."></textarea>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                <button class="btn btn-outline"
+                    onclick="document.getElementById('note-modal').style.display='none'">İptal</button>
+                <button class="btn btn-primary" onclick="CalendarManager.saveNoteFromModal()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reminder Modal -->
+    <div id="reminder-modal" class="login-overlay" style="display:none; z-index:10000;">
+        <div class="login-card" style="max-width:600px; padding:2rem;">
+            <h3 style="margin-bottom:1rem; color:var(--primary-color);">Hatırlatıcı Ekle</h3>
+            <input type="hidden" id="reminder-item-id">
+            <input type="hidden" id="reminder-item-type">
+
+            <div class="form-group">
+                <label>Hatırlatıcı Başlığı</label>
+                <input type="text" id="reminder-title" placeholder="Hatırlatıcı başlığı">
+            </div>
+
+            <div class="form-group">
+                <label>Tarih</label>
+                <input type="date" id="reminder-date">
+            </div>
+
+            <div class="form-group">
+                <label>Saat</label>
+                <input type="time" id="reminder-time">
+            </div>
+
+            <div class="form-group">
+                <label>Öncelik</label>
+                <select id="reminder-priority">
+                    <option value="low">Düşük</option>
+                    <option value="medium" selected>Orta</option>
+                    <option value="high">Yüksek</option>
+                </select>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+                <button class="btn btn-outline"
+                    onclick="document.getElementById('reminder-modal').style.display='none'">İptal</button>
+                <button class="btn btn-primary" onclick="saveReminder()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Note Editor Themes */
+        .style-postit {
+            background-color: #fef3c7;
+            color: #451a03;
+        }
+
+        .style-agenda {
+            background-color: #fff;
+            background-image: linear-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 100% 2em;
+            /* Line height match */
+            line-height: 2em;
+            color: #1e293b;
+        }
+
+        .style-parchment {
+            background-color: #f5e6d3;
+            color: #4b3621;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+        }
+
+        .style-default {
+            background-color: #fff;
+            color: var(--text-main);
+            border: 1px solid #e2e8f0;
+        }
+    </style>
+    <!-- About Modal -->
+    <div id="about-modal" class="modal">
+        <div class="modal-content" style="text-align:center; max-width:400px; padding: 2.5rem; border-radius: 1.5rem;">
+            <div
+                style="width:64px; height:64px; background:var(--primary-color); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem;">
+                <span class="material-icons-round" style="font-size:32px;">verified_user</span>
+            </div>
+            <h2 style="margin-bottom:0.5rem; color:#ffffff;">Müf.Yard</h2>
+            <p style="color:rgba(255,255,255,0.7); margin-bottom:1.5rem;">Dijital Müfettiş Yardımcısı v1.0</p>
+
+            <div
+                style="background:var(--bg-body); padding:1rem; border-radius:1rem; text-align:justify; margin-bottom:1.5rem; font-size:0.9rem; color:var(--text-main); line-height:1.6;">
+                <p>Bu yazılım, Gençlik ve Spor Bakanlığı denetim süreçlerini dijital çağa uyarlamak amacıyla
+                    geliştirilmiş, <strong>Yapay Zeka</strong> teknolojileriyle desteklenen modern bir müfettiş
+                    projesidir.</p>
+                <p style="margin-top:1rem;">Bu program sizin refakatinize verilmiş bir <strong>müfettiş
+                        yardımcısıdır</strong>. Hem sizin işlerinizi kolaylaştırır, hem de size yardımcı olur. Onu
+                    geliştirmek ise sizin elinizde ;)</p>
+                <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border-color);">
+                    <strong>Geliştirici:</strong> Sefa YAPRAKLI<br>
+                    <strong>Ünvan:</strong> Müfettiş<br>
+                    <p style="margin-top:0.5rem; font-style:italic; font-size:0.85rem; color:var(--text-secondary);">
+                        Bu proje, meslektaşlarımın işini kolaylaştırmak amacıyla geliştirilmiştir.</p>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="document.getElementById('about-modal').style.display='none'"
+                style="width:100%;">
+                Kapat
+            </button>
+        </div>
+    </div>
+
+    <!-- Note Modal for Calendar -->
+    <div id="calendar-note-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:500px; padding:2rem;">
+            <h3 id="calendar-note-date" style="margin-bottom:1rem; color:var(--text-main);">Not Ekle</h3>
+            <div class="form-group">
+                <label>Notunuz</label>
+                <textarea id="calendar-note-input" rows="4" placeholder="Notunuzu buraya yazın..."
+                    style="width:100%; padding:0.75rem; border:1px solid #e2e8f0; border-radius:8px; font-family:inherit; resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                <button class="btn btn-primary" onclick="CalendarManager.saveNoteFromModal()" style="flex:1;">
+                    <span class="material-icons-round">save</span> Kaydet
+                </button>
+                <button class="btn btn-outline"
+                    onclick="document.getElementById('calendar-note-modal').style.display='none'; document.getElementById('calendar-note-input').value='';"
+                    style="flex:1;">
+                    İptal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Confirmation Modal -->
+    <div id="confirm-modal" class="login-overlay" style="display:none; z-index:10001;">
+        <div class="login-card" style="max-width:400px; padding:1.5rem; text-align:center;">
+            <div class="icon-box warning" style="margin:0 auto 1rem; width:50px; height:50px;">
+                <span class="material-icons-round" style="font-size:32px;">priority_high</span>
+            </div>
+            <h3 style="margin-bottom:0.5rem; color:var(--text-main);">Emin misiniz?</h3>
+            <p id="confirm-message" style="color:var(--text-secondary); margin-bottom:1.5rem;">Bu işlemi onaylıyor
+                musunuz?</p>
+            <div style="display:flex; justify-content:center; gap:0.5rem;">
+                <button class="btn btn-outline" id="confirm-cancel-btn" style="min-width:100px;">İptal</button>
+                <button class="btn btn-primary" id="confirm-ok-btn"
+                    style="min-width:100px; background:var(--danger); border-color:var(--danger);">Evet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Modal -->
+    <div id="template-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header"
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h3 style="margin:0; font-size:1.5rem;">Şablon Seçiniz</h3>
+                <button class="settings-close" id="template-close-btn"
+                    style="background:transparent; border:none; font-size:1.8rem; line-height:1; cursor:pointer; color:var(--text-secondary);">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Lütfen oluşturmak istediğiniz rapor şablonunu seçin:</p>
+                <div id="template-list"
+                    style="display:flex; flex-direction:column; gap:0.5rem; max-height:300px; overflow-y:auto; margin-top:1rem;">
+                    <!-- Template Items -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Corporate Edit Modal -->
+    <div id="corporate-edit-modal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header"
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h3 style="margin:0; font-size:1.3rem;">Kişi Düzenle</h3>
+                <button onclick="document.getElementById('corporate-edit-modal').style.display='none'"
+                    style="background:transparent; border:none; font-size:1.8rem; line-height:1; cursor:pointer; color:var(--text-secondary);">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-corp-original-name">
+                <div class="form-group">
+                    <label>Ad Soyad</label>
+                    <input type="text" id="edit-corp-name" placeholder="Ad Soyad" disabled
+                        style="background:#f1f5f9; cursor:not-allowed;">
+                    <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">İsim değiştirilemez (Referans alanı)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Ünvan</label>
+                    <input type="text" id="edit-corp-role" placeholder="Ünvan">
+                </div>
+                <div class="form-group">
+                    <label>Telefon</label>
+                    <input type="text" id="edit-corp-phone" placeholder="05XX XXX XX XX">
+                </div>
+                <div class="form-group">
+                    <label>Dahili</label>
+                    <input type="text" id="edit-corp-ext" placeholder="XXXX">
+                </div>
+                <div style="display:flex; gap:1rem;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Kat</label>
+                        <input type="text" id="edit-corp-floor" placeholder="Kat No">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Oda</label>
+                        <input type="text" id="edit-corp-room" placeholder="Oda No">
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:end; gap:0.5rem; margin-top:1.5rem;">
+                    <button class="btn btn-outline"
+                        onclick="document.getElementById('corporate-edit-modal').style.display='none'">İptal</button>
+                    <button class="btn btn-primary" onclick="CorporateContactsManager.saveEdit()">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="toast.js"></script>
+    <script src="calendar_logic.js"></script>
+    <script src="app.js"></script>
+    <script src="audit_manager_new.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Müf.Yard Tanıtım Kılavuzu v2</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #1e293b;
+            --accent: #f59e0b;
+            --bg: #f8fafc;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        body {
+            background: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 0;
+        }
+
+        .page {
+            width: 210mm;
+            height: 297mm;
+            background: white;
+            position: relative;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media print {
+            body {
+                background: none;
+                padding: 0;
+            }
+
+            .page {
+                margin: 0;
+                box-shadow: none;
+                break-after: page;
+            }
+
+            .no-print {
+                display: none;
+            }
+        }
+
+        /* --- PAGE 1: COVER --- */
+        .cover-page {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .cover-logo-area {
+            width: 200px;
+            height: 200px;
+            background: linear-gradient(45deg, #3b82f6, #6366f1);
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 100px;
+            box-shadow: 0 20px 50px rgba(59, 130, 246, 0.3);
+            margin-bottom: 4rem;
+        }
+
+        .cover-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 5rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 1rem;
+            background: linear-gradient(to right, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .cover-subtitle {
+            font-size: 1.5rem;
+            color: #94a3b8;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* --- COMMON LAYOUTS --- */
+        .header {
+            padding: 3rem 3rem 1rem 3rem;
+        }
+
+        .header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3rem;
+            color: var(--secondary);
+            font-weight: 800;
+            line-height: 1.1;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            color: #64748b;
+            margin-top: 0.5rem;
+        }
+
+        .content {
+            padding: 2rem 3rem;
+            flex: 1;
+        }
+
+        /* --- PAGE 2: INSTALLATION --- */
+        .step-row {
+            display: flex;
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .step-card {
+            flex: 1;
+            background: #f1f5f9;
+            padding: 2rem;
+            border-radius: 20px;
+            position: relative;
+        }
+
+        .step-num {
+            font-size: 4rem;
+            font-weight: 900;
+            color: #cbd5e1;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            opacity: 0.5;
+        }
+
+        .step-icon {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .step-title {
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: var(--secondary);
+        }
+
+        /* --- PAGE 3: FEATURES --- */
+        .bento-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto auto;
+            gap: 1.5rem;
+            height: 100%;
+        }
+
+        .bento-item {
+            background: white;
+            border: 2px solid #f1f5f9;
+            border-radius: 24px;
+            padding: 2rem;
+            transition: transform 0.2s;
+        }
+
+        .bento-item:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .bento-item h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--secondary);
+        }
+
+        .bento-item p {
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .bento-icon {
+            width: 50px;
+            height: 50px;
+            background: #eff6ff;
+            color: var(--primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 24px;
+        }
+
+        /* --- PAGE 4: FOLDER SYSTEM --- */
+        .folder-visual {
+            background: #1e293b;
+            border-radius: 30px;
+            padding: 3rem;
+            color: white;
+            margin-top: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .folder-tree {
+            font-family: 'Consolas', monospace;
+            font-size: 1.1rem;
+            line-height: 1.8;
+            position: relative;
+            z-index: 2;
+        }
+
+        .folder-tree strong {
+            color: #fbbf24;
+        }
+
+        .highlight-bg {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 50%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05));
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #dbeafe;
+            color: #1e40af;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="no-print" style="position:fixed; top:20px; right:20px; z-index:999; text-align:right;">
+        <button onclick="window.print()"
+            style="background:var(--secondary); color:white; border:none; padding:15px 30px; font-size:1.1rem; font-weight:bold; border-radius:12px; cursor:pointer; box-shadow:0 10px 20px rgba(0,0,0,0.2);">🖨️
+            PDF Olarak İndir</button>
+        <div
+            style="margin-top:10px; color:#64748b; background:white; padding:5px 10px; border-radius:6px; font-size:0.8rem;">
+            İnfografik v2.0 - A4 Dikey</div>
+    </div>
+
+    <!-- 01. COVER -->
+    <div class="page cover-page">
+        <div class="cover-logo-area">
+            <span class="material-icons-round" style="color:white; font-size:100px;">verified_user</span>
+        </div>
+        <h1 class="cover-title">müf.yard</h1>
+        <p class="cover-subtitle">Dijital Müfettiş Yardımcısı</p>
+        <div style="margin-top: 4rem; display: flex; gap: 2rem; align-items: center; justify-content: center;">
+            <div style="text-align: left;">
+                <div style="font-weight: 800; font-size: 1.2rem;">v3.0</div>
+                <div style="color: #94a3b8;">Sürüm</div>
+            </div>
+            <div style="width: 1px; height: 40px; background: rgba(255,255,255,0.2);"></div>
+            <div style="text-align: left;">
+                <div style="font-weight: 800; font-size: 1.2rem;">2024</div>
+                <div style="color: #94a3b8;">Yıl</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 02. KURULUMSUZ GÜÇ -->
+    <div class="page">
+        <div class="header">
+            <span class="badge">BAŞLANGIÇ</span>
+            <h1>Kurulum Yok,<br>Özgürlük Var.</h1>
+            <p>USB'nize atın, dünyanın herhangi bir yerindeki bilgisayarda çalıştırın.</p>
+        </div>
+        <div class="content">
+            <img src="https://fonts.gstatic.com/s/i/materialiconsround/usb/v15/24px.svg" style="display:none;">
+            <!-- Preload hack -->
+
+            <div
+                style="background: #eff6ff; border-radius: 20px; padding: 3rem; text-align: center; margin-bottom: 3rem;">
+                <h3 style="color:var(--primary); font-size: 1.5rem; margin-bottom: 1rem;">Sadece 6 MB</h3>
+                <p style="color: #475569; font-size: 1.1rem; max-width: 500px; margin: 0 auto;">Devasa kurulum dosyaları
+                    yok. Program tamamen taşınabilir mimaride kodlandı.</p>
+            </div>
+
+            <div class="step-row">
+                <div class="step-card">
+                    <span class="step-num">1</span>
+                    <div class="step-icon material-icons-round">download</div>
+                    <div class="step-title">İndir</div>
+                    <p style="font-size:0.9rem; color:#64748b;">Tek bir .exe dosyası.</p>
+                </div>
+                <div class="step-card" style="background:var(--secondary); color:white;">
+                    <span class="step-num" style="opacity:0.2;">2</span>
+                    <div class="step-icon material-icons-round" style="color:#60a5fa;">play_arrow</div>
+                    <div class="step-title" style="color:white;">Çalıştır</div>
+                    <p style="font-size:0.9rem; color:#94a3b8;">Tıkla ve başla.</p>
+                </div>
+                <div class="step-card">
+                    <span class="step-num">3</span>
+                    <div class="step-icon material-icons-round">folder</div>
+                    <div class="step-title">Taşı</div>
+                    <p style="font-size:0.9rem; color:#64748b;">Klasörü istediğin yere götür.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 03. ANA ÖZELLİKLER -->
+    <div class="page">
+        <div class="header">
+            <span class="badge">ÖZELLİKLER</span>
+            <h1>Güçlü Araç Seti</h1>
+            <p>Denetim süreçlerini yönetmek için ihtiyacın olan her şey.</p>
+        </div>
+        <div class="content">
+            <div class="bento-grid">
+                <div class="bento-item" style="grid-row: span 2; background: #f8fafc;">
+                    <div class="bento-icon" style="background:white;"><span
+                            class="material-icons-round">dashboard</span></div>
+                    <h3>Dinamik Pano</h3>
+                    <p>Acil işler, yaklaşan teslim tarihleri ve istatistikler tek bakışta önünde.</p>
+                    <div style="margin-top:2rem; height: 100px; background: rgb(226, 232, 240); border-radius: 12px;">
+                    </div>
+                </div>
+                <div class="bento-item">
+                    <div class="bento-icon"><span class="material-icons-round">task_alt</span></div>
+                    <h3>Görev Takibi</h3>
+                    <p>Genel, Özel veya Soruşturma. Tüm denetim türleri için özel takip.</p>
+                </div>
+                <div class="bento-item">
+                    <div class="bento-icon" style="color:#ef4444; background:#fef2f2;"><span
+                            class="material-icons-round">notifications_active</span></div>
+                    <h3>Akıllı Uyarı</h3>
+                    <p>Teslimine az kalan işler otomatik olarak seni uyarır.</p>
+                </div>
+                <div class="bento-item" style="grid-column: span 2;">
+                    <div style="display:flex; align-items:center; gap:1rem;">
+                        <div class="bento-icon" style="margin:0; color:#10b981; background:#ecfdf5;"><span
+                                class="material-icons-round">verified</span></div>
+                        <div>
+                            <h3 style="margin:0;">Resmi ve Güvenli</h3>
+                            <p style="margin:0;">Veriler sadece senin bilgisayarında, şifreli olarak saklanır.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 04. MufYard SYSTEM -->
+    <div class="page" style="background: #0f172a; color: white;">
+        <div class="header">
+            <span class="badge" style="background:rgba(255,255,255,0.1); color:white;">YENİ SİSTEM</span>
+            <h1 style="color:white;">MufYard Klasör Yapısı</h1>
+            <p style="color:#94a3b8;">Verileriniz artık %100 düzenli, %100 güvende.</p>
+        </div>
+        <div class="content">
+            <div style="display:flex; gap:2rem; margin-bottom:2rem;">
+                <div style="flex:1;">
+                    <h3 style="color:#38bdf8; margin-bottom:1rem;">Sorun Neydi?</h3>
+                    <p style="color:#94a3b8; line-height:1.6;">Eskiden dosyalar C: sürücüsüne dağılıyordu veya proje
+                        klasörü içinde kayboluyordu. Programı başka yere taşıdığınızda veriler gelmiyordu.</p>
+                </div>
+                <div style="flex:1;">
+                    <h3 style="color:#34d399; margin-bottom:1rem;">Çözüm Ne?</h3>
+                    <p style="color:#94a3b8; line-height:1.6;">Artık program nereye kurulursa kurulsun, kendi içinde bir
+                        <strong>MufYard</strong> klasörü oluşturuyor. Tüm raporlar, belgeler ve veritabanı burada
+                        toplanıyor.</p>
+                </div>
+            </div>
+
+            <div class="folder-visual">
+                <div class="highlight-bg"></div>
+                <div class="folder-tree">
+                    📂 [Kurulum Dizini]<br>
+                    &nbsp;┣ 📄 MüfYard.exe<br>
+                    &nbsp;┗ 📂 <strong>MufYard</strong> <span style="opacity:0.5;">// Ana Veri Deposu</span><br>
+                    &nbsp;&nbsp;&nbsp;┣ 📄 database.json<br>
+                    &nbsp;&nbsp;&nbsp;┗ 📂 Raporlar<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┗ 📂 2024<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┗ 📂 Genel Denetim<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┗ 📂 <strong
+                        style="color:#fbbf24; text-decoration: underline;">1 - GSB İncelemesi</strong>
+                </div>
+            </div>
+
+            <div style="text-align:center; margin-top:2rem; opacity:0.7;">
+                <span class="material-icons-round" style="vertical-align:middle; font-size:1.2rem;">info</span>
+                <span style="font-size:0.9rem;">Bu klasöre "Dosyalarım" menüsünden tek tıkla ulaşabilirsiniz.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 05. REHBER VE HIZLI ERIŞIM -->
+    <div class="page">
+        <div class="header">
+            <span class="badge">BAĞLANTILI</span>
+            <h1>Dünya Elinin Altında</h1>
+            <p>Mevzuat, Kişiler ve Kurumlar.</p>
+        </div>
+        <div class="content">
+            <div style="display:flex; gap:2rem; height: 45%;">
+                <div
+                    style="flex:1; background:#fff1f2; border-radius:24px; padding:2rem; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+                    <span class="material-icons-round"
+                        style="font-size:4rem; color:#db2777; margin-bottom:1rem;">gavel</span>
+                    <h2 style="color:#9d174d; font-size:1.5rem; margin-bottom:0.5rem;">Mevzuat</h2>
+                    <p style="color:#be185d;">Mevzuat.gov.tr ve Resmi Gazete programın içine entegre.</p>
+                </div>
+                <div
+                    style="flex:1; background:#f0fdf4; border-radius:24px; padding:2rem; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+                    <span class="material-icons-round"
+                        style="font-size:4rem; color:#16a34a; margin-bottom:1rem;">contacts</span>
+                    <h2 style="color:#14532d; font-size:1.5rem; margin-bottom:0.5rem;">Rehber</h2>
+                    <p style="color:#15803d;">Tüm bakanlık birimleri ve kişisel kontaklarınız.</p>
+                </div>
+            </div>
+
+            <div
+                style="margin-top:2rem; padding:2rem; border:2px dashed #cbd5e1; border-radius:24px; text-align:center;">
+                <h3 style="color:#64748b; margin-bottom:1rem;">Excel Entegrasyonu</h3>
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/34/Microsoft_Office_Excel_%282019%E2%80%93present%29.svg"
+                    width="60" style="margin-bottom:1rem; opacity:0.8;">
+                <p style="color:#94a3b8;">Kişi listenizi tek tıkla Excel'e aktarın veya Excel'den içeri alın.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 06. BACK COVER -->
+    <div class="page cover-page" style="background: white; color: var(--secondary);">
+        <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+            <span class="material-icons-round"
+                style="font-size:6rem; color:var(--primary); margin-bottom:2rem;">rocket_launch</span>
+            <h1 style="font-size:3rem; font-weight:900; color:var(--secondary); margin-bottom:1rem;">Hazır mısın?</h1>
+            <p style="font-size:1.5rem; color:#64748b; margin-bottom:3rem;">İşlerini organize etmenin en modern yolu.
+            </p>
+
+            <div
+                style="padding: 1.5rem 3rem; background: #f8fafc; border-radius: 50px; font-weight: 600; font-size: 1.2rem; color: #475569;">
+                iletisim@mufyard.com
+            </div>
+        </div>
+        <div style="padding:2rem; color:#cbd5e1; font-size:0.9rem;">
+            © 2024 Müf.Yard Yazılım Ekibi. Tüm hakları saklıdır.
+        </div>
+    </div>
+
+</body>
+
+</html>

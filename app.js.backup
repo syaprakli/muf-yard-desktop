@@ -1,0 +1,2421 @@
+/**
+ * Müfettiş Asistanı - Main Application Logic
+ */
+
+// --- Data Layer ---
+class StorageManager {
+    static get(key, defaultValue = null) {
+        const stored = localStorage.getItem(key);
+        return stored ? JSON.parse(stored) : defaultValue;
+    }
+
+    static set(key, value) {
+        localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    static addToArray(key, item) {
+        const items = this.get(key, []);
+        items.unshift(item); // En yeni en başa
+        this.set(key, items);
+        return items;
+    }
+
+    static removeFromArray(key, idField, idValue) {
+        let items = this.get(key, []);
+        items = items.filter(item => item[idField] !== idValue);
+        this.set(key, items);
+        return items;
+    }
+
+    static exportData() {
+        if (typeof BackupManager !== 'undefined') {
+            BackupManager.createBackup(true);
+        } else {
+            alert('Yedekleme yöneticisi yüklenemedi.');
+        }
+    }
+
+    static importData(jsonData) {
+        try {
+            const data = JSON.parse(jsonData);
+            if (data.reports) this.set('reports', data.reports);
+            if (data.tasks) this.set('tasks', data.tasks);
+            if (data.contacts) this.set('contacts', data.contacts);
+            if (data.notes) this.set('notes', data.notes);
+            return true;
+        } catch (e) {
+            console.error('Import Error:', e);
+            return false;
+        }
+    }
+}
+
+class BackupManager {
+    static getBackupPath() {
+        return 'C:\\MufettisYard\\Yedekler';
+    }
+
+    static async ensureBackupFolder() {
+        if (typeof require !== 'undefined') {
+            const fs = require('fs');
+            const path = this.getBackupPath();
+            if (!fs.existsSync(path)) {
+                fs.mkdirSync(path, { recursive: true });
+            }
+        }
+    }
+
+    static async createBackup(manual = false) {
+        if (typeof require === 'undefined') {
+            alert('Yedekleme sadece masaüstü uygulamasında çalışır.');
+            return;
+        }
+
+        try {
+            await this.ensureBackupFolder();
+            const fs = require('fs');
+            const path = require('path');
+
+            const data = {
+                reports: StorageManager.get('reports', []),
+                tasks: StorageManager.get('tasks', []),
+                contacts: StorageManager.get('contacts', []),
+                notes: StorageManager.get('notes', [])
+            };
+
+            const timestamp = new Date().toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
+            const filename = `yedek_${timestamp}${manual ? '_MANUEL' : '_AUTO'}.json`;
+            const fullPath = path.join(this.getBackupPath(), filename);
+
+            fs.writeFileSync(fullPath, JSON.stringify(data, null, 2), 'utf-8');
+
+            if (manual) {
+                alert(`Yedekleme Başarılı!\nKonum: ${fullPath}`);
+            }
+            console.log('Backup created:', fullPath);
+
+            // Son yedekleme zamanını kaydet
+            localStorage.setItem('last_backup_time', new Date().toISOString());
+
+            return true;
+        } catch (error) {
+            console.error('Backup failed:', error);
+            if (manual) alert('Yedekleme Hatası: ' + error.message);
+            return false;
+        }
+    }
+
+    static async autoBackup() {
+        console.log('Running auto backup...');
+        await this.createBackup(false);
+    }
+
+    static shouldBackupToday() {
+        const lastBackup = localStorage.getItem('last_backup_time');
+        if (!lastBackup) return true;
+
+        const lastBackupDate = new Date(lastBackup);
+        const today = new Date();
+
+        // Farklı günse yedek al
+        return lastBackupDate.toDateString() !== today.toDateString();
+    }
+
+    static startDailyBackupScheduler() {
+        // Her saat kontrol et, saat 23:00'da yedek al
+        setInterval(() => {
+            const now = new Date();
+            const hour = now.getHours();
+
+            // Saat 23:00 ve bugün henüz yedek alınmadıysa
+            if (hour === 23 && this.shouldBackupToday()) {
+                console.log('Daily backup triggered at 23:00');
+                this.createBackup(false);
+            }
+        }, 60 * 60 * 1000); // Her saat kontrol et
+    }
+
+    static async backupOnClose() {
+        // Program kapanırken yedek al
+        console.log('Backup on close triggered');
+        await this.createBackup(false);
+    }
+}
+
+
+
+class ThemeManager {
+    static init() {
+        const savedTheme = StorageManager.get('theme', 'light');
+        const savedFont = StorageManager.get('font', 'Inter');
+        const savedColor = StorageManager.get('accent_color', '#1a237e');
+        const savedSidebar = StorageManager.get('sidebar_color', '#0f172a');
+
+        this.apply(savedTheme);
+        this.applyFont(savedFont);
+        this.applyColor(savedColor);
+        this.applySidebarColor(savedSidebar);
+        this.updateIcon(savedTheme);
+    }
+
+    static toggle() {
+        const current = document.documentElement.getAttribute('data-theme');
+        const newTheme = current === 'dark' ? 'light' : 'dark';
+        this.apply(newTheme);
+        StorageManager.set('theme', newTheme);
+        this.updateIcon(newTheme);
+    }
+
+    static apply(theme) {
+        if (theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+    }
+
+    static applyFont(fontName) {
+        document.documentElement.style.setProperty('--font-main', `'${fontName}', sans-serif`);
+        StorageManager.set('font', fontName);
+    }
+
+    static applyColor(colorHex) {
+        document.documentElement.style.setProperty('--primary-color', colorHex);
+        document.documentElement.style.setProperty('--primary-light', colorHex);
+        document.documentElement.style.setProperty('--primary-dark', colorHex);
+        StorageManager.set('accent_color', colorHex);
+    }
+
+    static applySidebarColor(colorHex) {
+        document.documentElement.style.setProperty('--bg-sidebar', colorHex);
+        StorageManager.set('sidebar_color', colorHex);
+    }
+
+    static updateIcon(theme) {
+        const btn = document.getElementById('theme-toggle-btn');
+        if (btn) {
+            btn.innerHTML = theme === 'dark'
+                ? '<span class="material-icons-round">light_mode</span>'
+                : '<span class="material-icons-round">dark_mode</span>';
+            btn.title = theme === 'dark' ? 'Aydınlık Mod' : 'Karanlık Mod';
+        }
+    }
+}
+
+class NoteManager {
+    static getNotes() {
+        return StorageManager.get('notes', []);
+    }
+
+    static addNote(content) {
+        const note = {
+            id: Date.now(),
+            content: content,
+            date: new Date().toISOString(),
+            isPinned: false
+        };
+        StorageManager.addToArray('notes', note);
+        return note;
+    }
+
+    static deleteNote(id) {
+        StorageManager.removeFromArray('notes', 'id', id);
+    }
+}
+
+class ContactsManager {
+    static getContacts() {
+        return StorageManager.get('contacts', []);
+    }
+
+    static addContact(data) {
+        const contact = {
+            id: Date.now(),
+            name: data.name,
+            role: data.role,
+            phone: data.phone,
+            email: data.email,
+            relatedJob: data.relatedJob || '' // Yeni Alan: Hangi İş
+        };
+        StorageManager.addToArray('contacts', contact);
+        return contact;
+    }
+
+    static updateContact(id, data) {
+        let contacts = this.getContacts();
+        const index = contacts.findIndex(c => c.id === id);
+        if (index !== -1) {
+            contacts[index] = { ...contacts[index], ...data };
+            StorageManager.set('contacts', contacts);
+            return contacts[index];
+        }
+    }
+
+    static deleteContact(id) {
+        StorageManager.removeFromArray('contacts', 'id', id);
+    }
+}
+
+
+
+class FolderManager {
+    static getFolderForReport(report) {
+        const dateObj = report.startDate ? new Date(report.startDate) : new Date();
+        const year = dateObj.getFullYear();
+
+        const typeLabels = {
+            'inceleme': 'İnceleme',
+            'sorusturma': 'Soruşturma',
+            'genel-denetim': 'Genel Denetim',
+            'ozel-denetim': 'Özel Denetim',
+            'on-inceleme': 'Ön İnceleme',
+            'on-arastirma': 'Ön Araştırma'
+        };
+        const typeName = typeLabels[report.type] || 'Diğer';
+        const safeCode = (report.code || '').replace(/[<>:"/\\|?*]/g, '_');
+        const safeTitle = (report.title || '').replace(/[<>:"/\\|?*]/g, '_');
+        const folderName = `${safeCode} - ${safeTitle}`;
+
+        return `C:\\MufettisYard\\${year}\\${typeName}\\${folderName}`;
+    }
+
+    static pathJoin(...parts) {
+        return parts.join('\\');
+    }
+}
+
+class DocumentManager {
+    static getTemplateContent(report) {
+        const user = AuthManager.getUser() || { fullname: 'Müfettiş' };
+        // Tarih formatı: dd.mm.yyyy
+        const today = new Date().toLocaleDateString('tr-TR');
+        const startDate = new Date(report.startDate).toLocaleDateString('tr-TR');
+
+        // Dynamic Titles based on Type
+        let mainType = 'SORUŞTURMA';
+        if (report.type && report.type.includes('inceleme')) {
+            mainType = 'İNCELEME';
+        } else if (report.type === 'genel-denetim') {
+            mainType = 'DENETİM';
+        } else if (report.type === 'on-arastirma') {
+            mainType = 'ÖN ARAŞTIRMA';
+        }
+
+        // Suffix Logic
+        let typeSuffix = 'NIN'; // Default (SORUŞTURMA -> SORUŞTURMA-NIN)
+        if (mainType === 'İNCELEME') typeSuffix = 'NİN';
+        if (mainType === 'DENETİM') typeSuffix = 'İN';
+        if (mainType === 'ÖN ARAŞTIRMA') typeSuffix = 'NIN';
+
+        const title1 = `I- ${mainType} EMRİ:`;
+        const title2 = `II- ${mainType}${typeSuffix} KONUSU:`;
+        const title3 = `III- ${mainType} TARİHLERİ:`;
+        const title4 = `IV- MUHBİR-MÜŞTEKİ:`;
+        const title5 = `V- HAKKINDA ${mainType} YAPILAN/YAPILANLAR:`;
+        const title6 = `VI- OLAYLARIN TAHLİLİ VE DELİLLERİN TARTIŞILMASI:`;
+        const title7 = `VII- SONUÇ, KANAAT VE TEKLİFLER:`;
+
+
+        return `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+            <meta charset='utf-8'>
+            <title>${report.title}</title>
+            <style>
+                body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5; }
+                p { margin: 6pt 0; text-align: justify; }
+                .header { text-align: center; font-weight: bold; margin-bottom: 30pt; font-size: 14pt; }
+                .section-title { font-weight: bold; margin-top: 18pt; margin-bottom: 6pt; text-transform: uppercase; }
+                .footer { margin-top: 48pt; text-align: right; }
+                .table-reset { width: 100%; border: none; border-collapse: collapse; margin-bottom: 24pt; }
+                .table-reset td { padding: 0; vertical-align: top; }
+                .address { text-align: center; font-weight: bold; margin: 36pt 0; font-size: 12pt; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                T.C.<br>
+                GENÇLİK VE SPOR BAKANLIĞI<br>
+                MÜFETTİŞLİĞİ
+            </div>
+            
+            <table class="table-reset">
+                <tr>
+                    <td style="text-align: left; width: 60%;">
+                        <strong>Sayı:</strong> ${report.code}
+                    </td>
+                    <td style="text-align: right; width: 40%;">
+                        ${today}
+                    </td>
+                </tr>
+            </table>
+
+            <div class="address">
+                BAKANLIK MAKAMINA
+            </div>
+
+            <div class="section-title">${title1}</div>
+            <p>
+                ${mainType.charAt(0) + mainType.slice(1).toLocaleLowerCase('tr')}, Bakanlık Makamının ${startDate} tarihli Oluru ile Rehberlik ve Denetim Başkanlığınca verilen görev emrine istinaden yapılmıştır.
+            </p>
+
+            <div class="section-title">${title2}</div>
+            <p>
+                ${report.title} hususları ${mainType.toLocaleLowerCase('tr')}${typeSuffix.toLocaleLowerCase('tr')} konusunu oluşturmaktadır.
+            </p>
+
+            <div class="section-title">${title3}</div>
+            <p>
+                ${mainType.charAt(0) + mainType.slice(1).toLocaleLowerCase('tr')} ${startDate} tarihinde başlamış olup, halen devam etmektedir.
+            </p>
+
+            <div class="section-title">${title4}</div>
+            <p>
+                (Muhbir veya müşteki varsa buraya yazılacaktır. Yoksa 'Bulunmamaktadır' yazılabilir.)
+            </p>
+
+            <div class="section-title">${title5}</div>
+            <p>
+                (Hakkında ${mainType.toLocaleLowerCase('tr')} yapılan personel bilgileri...)
+            </p>
+            
+            <div class="section-title">${title6}</div>
+            <p>
+                (Elde edilen bilgi ve belgelerin değerlendirilmesi...)
+            </p>
+
+            <div class="section-title">${title7}</div>
+            <p>
+                (Sonuç ve kanaat...)
+            </p>
+
+            <div class="footer">
+                <br><br>
+                <strong>${user.fullname}</strong><br>
+                Müfettiş
+            </div>
+        </body>
+        </html>
+        `;
+    }
+
+    static createTemplate(reportId) {
+        const reports = StorageManager.get('reports', []);
+        const report = reports.find(r => r.id === reportId);
+        if (!report) return alert('Rapor bulunamadı!');
+
+        const content = this.getTemplateContent(report);
+        const folderPath = FolderManager.getFolderForReport(report);
+        // Filename updated to 'Rapor_Taslagi' as per new context
+        const filename = `Rapor_Taslagi_${report.code.replace(/[\/\\?%*:|"<>\.]/g, '-')}.doc`;
+        const fullPath = FolderManager.pathJoin(folderPath, filename);
+
+        if (typeof require !== 'undefined') {
+            const fs = require('fs');
+            const { shell } = require('electron');
+
+            if (!fs.existsSync(folderPath)) {
+                fs.mkdirSync(folderPath, { recursive: true });
+            }
+
+            try {
+                fs.writeFileSync(fullPath, content, 'utf-8');
+
+                if (confirm(`Dosya Başarıyla Oluşturuldu!\n\nDosya Adı: ${filename}\nKonum: ${folderPath}\n\nKlasörü açıp dosyayı görmek ister misiniz?`)) {
+                    shell.openPath(folderPath);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Dosya oluşturulamadı: ' + error.message);
+            }
+        } else {
+            alert('Bu özellik tarayıcıda çalışmaz.');
+        }
+    }
+}
+
+class ReportManager {
+    static getReports() {
+        return StorageManager.get('reports', []);
+    }
+
+    static generateReportCode() {
+        const reports = this.getReports();
+        const currentYear = new Date().getFullYear();
+        const prefix = `S.Y.64/${currentYear}-`;
+
+        // Bu yıla ait raporların sıra numaralarını bul
+        const sequenceNumbers = reports
+            .filter(r => r.code && r.code.startsWith(prefix))
+            .map(r => parseInt(r.code.replace(prefix, '')))
+            .filter(n => !isNaN(n));
+
+        const nextSeq = sequenceNumbers.length > 0 ? Math.max(...sequenceNumbers) + 1 : 1;
+        return `${prefix}${nextSeq}`;
+    }
+
+    static addReport(data) {
+        // Tarih hesaplamaları
+        let deadline = data.endDate; // Artık explicit bitiş tarihi var
+        let duration = parseInt(data.duration) || 0;
+
+        // Eğer bitiş tarihi seçildiyse süreyi hesapla, seçilmediyse süreden hesapla
+        // Eğer bitiş tarihi seçildiyse süreyi hesapla, seçilmediyse süreden hesapla
+        if (data.startDate && duration) {
+            const start = new Date(data.startDate);
+            const end = new Date(start);
+            end.setDate(start.getDate() + duration);
+            deadline = end.toISOString().split('T')[0];
+        } else {
+            // Fallback
+            deadline = data.startDate;
+        }
+
+        const report = {
+            id: Date.now(),
+            code: data.code || this.generateReportCode(), // Manual or Auto
+            title: data.title,
+            type: data.type || 'genel-denetim',
+            entity: data.entity,
+            startDate: data.startDate || new Date().toISOString().split('T')[0],
+            duration: duration,
+            deadline: deadline, // Bitiş Tarihi
+            status: data.status || 'baslanmadi',
+            priority: data.priority || 'normal',
+            checklist: [],
+            description: data.description || '',
+            createdAt: new Date().toISOString()
+        };
+        StorageManager.addToArray('reports', report);
+        return report;
+    }
+
+    static deleteReport(id) {
+        StorageManager.removeFromArray('reports', 'id', id);
+    }
+
+    static updateStatus(id, newStatus) {
+        let reports = this.getReports();
+        const index = reports.findIndex(i => i.id === id);
+        if (index !== -1) {
+            reports[index].status = newStatus;
+            StorageManager.set('reports', reports);
+        }
+    }
+
+    static updateReport(id, updatedData) {
+        let reports = this.getReports();
+        const index = reports.findIndex(r => r.id === id);
+        if (index !== -1) {
+            // Mevcut veriyi koru, yenileriyle güncelle
+            const oldReport = reports[index];
+
+            // Tarih/Süre tekrar hesapla (logic Add ile aynı olmalı ama basitleştirilmiş)
+            let deadline = updatedData.endDate;
+            let duration = parseInt(updatedData.duration) || 0;
+            if (updatedData.startDate && duration) {
+                const start = new Date(updatedData.startDate);
+                const end = new Date(start);
+                end.setDate(start.getDate() + duration);
+                deadline = end.toISOString().split('T')[0];
+            } else {
+                deadline = updatedData.startDate;
+            }
+
+            reports[index] = {
+                ...oldReport,
+                code: updatedData.code,
+                title: updatedData.title,
+                type: updatedData.type,
+                startDate: updatedData.startDate,
+                duration: duration,
+                deadline: deadline
+            };
+            StorageManager.set('reports', reports);
+        }
+    }
+
+    static addChecklistItem(repId, text) {
+        let reports = this.getReports();
+        const index = reports.findIndex(i => i.id === repId);
+        if (index !== -1) {
+            const item = { id: Date.now(), text: text, completed: false };
+            reports[index].checklist = reports[index].checklist || [];
+            reports[index].checklist.push(item);
+            StorageManager.set('reports', reports);
+        }
+    }
+
+    static toggleChecklistItem(repId, itemId) {
+        let reports = this.getReports();
+        const index = reports.findIndex(i => i.id === repId);
+        if (index !== -1 && reports[index].checklist) {
+            const itemIndex = reports[index].checklist.findIndex(c => c.id === itemId);
+            if (itemIndex !== -1) {
+                reports[index].checklist[itemIndex].completed = !reports[index].checklist[itemIndex].completed;
+                StorageManager.set('reports', reports);
+            }
+        }
+    }
+
+    static deleteChecklistItem(repId, itemId) {
+        let reports = this.getReports();
+        const index = reports.findIndex(i => i.id === repId);
+        if (index !== -1 && reports[index].checklist) {
+            reports[index].checklist = reports[index].checklist.filter(c => c.id !== itemId);
+            StorageManager.set('reports', reports);
+        }
+    }
+
+    static getStats() {
+        const reports = this.getReports();
+        return {
+            total: reports.length,
+            active: reports.filter(i => i.status !== 'tamamlandi').length,
+            completed: reports.filter(i => i.status === 'tamamlandi').length,
+            urgent: reports.filter(i => {
+                if (i.status === 'tamamlandi') return false;
+                const deadline = new Date(i.deadline);
+                const today = new Date();
+                const diffTime = deadline - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return diffDays <= 7 && diffDays >= 0;
+            }).length
+        };
+    }
+}
+
+
+
+
+class TaskManager {
+    static getTasks() {
+        return StorageManager.get('tasks', []);
+    }
+
+    static addTask(content, priority = 'normal') {
+        const task = {
+            id: Date.now(),
+            content: content,
+            priority: priority, // 'normal', 'high'
+            completed: false,
+            createdAt: new Date().toISOString()
+        };
+        StorageManager.addToArray('tasks', task);
+        return task;
+    }
+
+    static toggleTask(id) {
+        let tasks = this.getTasks();
+        const index = tasks.findIndex(t => t.id === id);
+        if (index !== -1) {
+            tasks[index].completed = !tasks[index].completed;
+            StorageManager.set('tasks', tasks);
+        }
+    }
+
+    static deleteTask(id) {
+        StorageManager.removeFromArray('tasks', 'id', id);
+    }
+
+    static getStats() {
+        const tasks = this.getTasks();
+        return {
+            total: tasks.length,
+            completed: tasks.filter(t => t.completed).length,
+            pending: tasks.filter(t => !t.completed).length,
+            urgent: tasks.filter(t => !t.completed && t.priority === 'high').length
+        };
+    }
+}
+
+// --- Template Manager ---
+const TemplateManager = {
+    getTemplates: () => {
+        const templates = localStorage.getItem('app_templates');
+        if (templates) return JSON.parse(templates);
+        // Default Mock Data
+        const defaults = [
+            { id: 1, name: 'Denetim Raporu Kapağı', type: 'docx', date: '2024-12-01' },
+            { id: 2, name: 'Soruşturma Üst Yazı', type: 'docx', date: '2024-12-10' },
+            { id: 3, name: 'Görevden Ayrılış Yazısı', type: 'pdf', date: '2024-11-20' },
+            { id: 4, name: 'İnceleme Tutanağı', type: 'docx', date: '2024-12-12' },
+            { id: 5, name: 'Yolluk Bildirimi', type: 'xlsx', date: '2024-12-05' }
+        ];
+        localStorage.setItem('app_templates', JSON.stringify(defaults));
+        return defaults;
+    },
+
+    addTemplate: (file) => {
+        const templates = TemplateManager.getTemplates();
+        const newTemplate = {
+            id: Date.now(),
+            name: file.name,
+            type: file.name.split('.').pop(),
+            date: new Date().toISOString().split('T')[0]
+        };
+        templates.push(newTemplate);
+        localStorage.setItem('app_templates', JSON.stringify(templates));
+        UIManager.initTemplatesView();
+    },
+
+    deleteTemplate: (id, event) => {
+        event.stopPropagation();
+        if (confirm('Şablonu silmek istediğinize emin misiniz?')) {
+            let templates = TemplateManager.getTemplates();
+            templates = templates.filter(t => t.id !== id);
+            localStorage.setItem('app_templates', JSON.stringify(templates));
+            UIManager.initTemplatesView();
+        }
+    }
+};
+
+// --- UI Layer ---
+const UIManager = {
+    showAboutModal: () => {
+        document.getElementById('about-modal').style.display = 'flex';
+    },
+
+    // ... existing methods ...
+
+    initTemplatesView: (filterQuery = '') => {
+        const container = document.getElementById('content-area');
+        container.innerHTML = `
+            <div class="upload-zone" onclick="document.getElementById('template-upload').click()">
+                <div class="material-icons-round" style="font-size:3rem; color:var(--primary-color); opacity:0.7;">cloud_upload</div>
+                <h3 style="margin:1rem 0 0.5rem 0; color:var(--text-main);">Yeni Şablon Yükle</h3>
+                <p style="color:var(--text-secondary);">veya dosyayı buraya sürükleyip bırakın</p>
+                <input type="file" id="template-upload" style="display:none;" onchange="TemplateManager.addTemplate(this.files[0])">
+            </div>
+
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+                <h3>Kayıtlı Şablonlar</h3>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <input type="text" id="template-search" placeholder="Ara..." 
+                        style="padding:0.5rem 1rem; border:1px solid var(--border-color); border-radius:var(--radius-md); font-size:0.9rem; width:200px;"
+                        value="${filterQuery}">
+                    <select id="template-type-filter" 
+                        style="padding:0.5rem; border:1px solid var(--border-color); border-radius:var(--radius-md); font-size:0.9rem;">
+                        <option value="">Tüm Tipler</option>
+                        <option value="docx">Word (.docx)</option>
+                        <option value="pdf">PDF (.pdf)</option>
+                        <option value="xlsx">Excel (.xlsx)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="template-grid">
+                <!-- Templates Loop -->
+            </div>
+        `;
+
+        // Add event listeners for filtering
+        const searchInput = document.getElementById('template-search');
+        const typeFilter = document.getElementById('template-type-filter');
+
+        searchInput.addEventListener('input', (e) => {
+            UIManager.renderTemplates(e.target.value, typeFilter.value);
+        });
+
+        typeFilter.addEventListener('change', (e) => {
+            UIManager.renderTemplates(searchInput.value, e.target.value);
+        });
+
+        // Initial render
+        UIManager.renderTemplates(filterQuery, '');
+    },
+
+    renderTemplates: (searchQuery = '', typeFilter = '') => {
+        const grid = document.querySelector('.template-grid');
+        let templates = TemplateManager.getTemplates();
+
+        // Apply filters
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            templates = templates.filter(t =>
+                t.name.toLowerCase().includes(query)
+            );
+        }
+
+        if (typeFilter) {
+            templates = templates.filter(t => t.type === typeFilter);
+        }
+
+        if (templates.length === 0) {
+            grid.innerHTML = `<div class="empty-state">Şablon bulunamadı.</div>`;
+            return;
+        }
+
+        grid.innerHTML = templates.map(t => {
+            let icon = 'description';
+            if (t.type === 'pdf') icon = 'picture_as_pdf';
+            if (t.type === 'xlsx' || t.type === 'xls') icon = 'table_view';
+
+            return `
+                <div class="template-card" data-type="${t.type}" onclick="alert('Belge açılıyor: ${t.name}')">
+                    <div style="position:absolute; top:1rem; right:1rem; cursor:pointer; color:var(--danger);" onclick="TemplateManager.deleteTemplate(${t.id}, event)">
+                        <span class="material-icons-round" style="font-size:1.2rem;">delete</span>
+                    </div>
+                    <div class="template-icon">
+                        <span class="material-icons-round" style="font-size:3rem;">${icon}</span>
+                    </div>
+                    <div class="template-name" title="${t.name}">${t.name}</div>
+                    <div class="template-meta">${t.date} • .${t.type.toUpperCase()}</div>
+                </div>
+            `;
+        }).join('');
+    },
+    renderNotes: (notes, filterText = '') => {
+        const grid = document.getElementById('notes-grid');
+        if (!grid) return;
+
+        // Filter
+        if (filterText) {
+            const lower = filterText.toLowerCase();
+            notes = notes.filter(n => n.content.toLowerCase().includes(lower));
+        }
+
+        if (notes.length === 0) {
+            grid.innerHTML = '<p class="empty-state">Henüz hiç not almadınız. Yeni bir tane ekleyin!</p>';
+            return;
+        }
+
+        grid.innerHTML = notes.map(note => `
+            <div class="note-card">
+                <div class="note-content">${note.content}</div>
+                <div class="note-footer">
+                    <span class="note-date">${new Date(note.date).toLocaleDateString('tr-TR')}</span>
+                    <button class="btn-icon delete-note" data-id="${note.id}">
+                        <span class="material-icons-round">delete</span>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        document.querySelectorAll('.delete-note').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                NoteManager.deleteNote(id);
+                UIManager.renderNotes(NoteManager.getNotes());
+            });
+        });
+    },
+
+    initNotesView: () => {
+        const container = document.getElementById('content-area');
+        container.innerHTML = `
+            <div class="section-container">
+                <div class="input-group">
+                    <textarea id="new-note-input" placeholder="Aklınızdakileri hemen not edin..." rows="3"></textarea>
+                    <button id="add-note-btn" class="btn btn-primary">
+                        <span class="material-icons-round">save</span>
+                        Kaydet
+                    </button>
+                </div>
+                <div class="section-header" style="margin-top: 2rem; display:flex; justify-content:space-between; align-items:center;">
+                    <h3>Notlarım</h3>
+                     <div class="filters">
+                        <input type="text" id="search-notes" placeholder="Notlarda ara..." class="search-input">
+                    </div>
+                </div>
+                <div id="notes-grid" class="notes-grid"></div>
+            </div>
+        `;
+        UIManager.renderNotes(NoteManager.getNotes());
+
+        document.getElementById('search-notes').addEventListener('input', (e) => {
+            UIManager.renderNotes(NoteManager.getNotes(), e.target.value);
+        });
+
+        document.getElementById('add-note-btn').addEventListener('click', () => {
+            const input = document.getElementById('new-note-input');
+            const content = input.value.trim();
+            if (content) {
+                NoteManager.addNote(content);
+                input.value = '';
+                UIManager.renderNotes(NoteManager.getNotes());
+            }
+        });
+    },
+
+    renderReports: (reports, filterText = '') => {
+        const list = document.getElementById('report-list');
+        if (!list) return;
+
+        // Filter
+        if (filterText) {
+            const lower = filterText.toLowerCase();
+            reports = reports.filter(r =>
+                (r.title && r.title.toLowerCase().includes(lower)) ||
+                (r.code && r.code.toLowerCase().includes(lower))
+            );
+        }
+
+        if (reports.length === 0) {
+            list.innerHTML = `
+                <div class="empty-table-state">
+                    <span class="material-icons-round">search_off</span>
+                    <p>${filterText ? 'Aranan kritere uygun rapor bulunamadı.' : 'Henüz kayıtlı rapor yok.'}</p>
+                </div>`;
+            return;
+        }
+
+        reports.sort((a, b) => (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' }));
+
+        list.innerHTML = reports.map(rep => {
+            const statusLabels = {
+                'baslanmadi': { text: 'Başlanmadı', class: 'status-pending' },
+                'devam-ediyor': { text: 'Devam Ediyor', class: 'status-progress' },
+                'evrak-bekleniyor': { text: 'Evrak Bekleniyor', class: 'status-waiting' },
+                'incelemecide': { text: 'İncelemede', class: 'status-review' },
+                'tamamlandi': { text: 'Tamamlandı', class: 'status-done' }
+            };
+            const status = statusLabels[rep.status] || statusLabels['baslanmadi'];
+
+            const typeLabels = {
+                'inceleme': 'İnceleme',
+                'sorusturma': 'Soruşturma',
+                'genel-denetim': 'Genel Denetim',
+                'ozel-denetim': 'Özel Denetim',
+                'on-inceleme': 'Ön İnceleme',
+                'on-arastirma': 'Ön Araştırma'
+            };
+            const typeText = typeLabels[rep.type] || rep.type;
+
+            const today = new Date();
+            const deadline = new Date(rep.deadline);
+            const diffTime = deadline - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            let dateText = `${diffDays} gün kaldı`;
+            let dateColor = 'var(--success)';
+            let statusDotColor = '#4caf50';
+
+            if (rep.status === 'tamamlandi') {
+                dateText = 'Tamamlandı';
+            } else {
+                if (diffDays < 0) {
+                    dateText = `${Math.abs(diffDays)} gün geç.`;
+                    dateColor = 'var(--danger)';
+                    const overdue = Math.abs(diffDays);
+                    if (overdue <= 30) statusDotColor = '#ffca28';
+                    else if (overdue <= 90) statusDotColor = '#ff9800';
+                    else statusDotColor = '#f44336';
+                } else {
+                    // Süresi var
+                    statusDotColor = '#4caf50';
+                }
+            }
+
+            const startDate = new Date(rep.startDate).toLocaleDateString('tr-TR');
+
+            return `
+            <div class="inspection-row" style="padding: 1rem; border-bottom: 1px solid #f1f5f9; display:grid; grid-template-columns: 1fr 2.5fr 1fr 1fr 1.2fr 1fr 0.5fr 1.5fr; gap:0.5rem; align-items:center; background:#fff; transition:background 0.2s;">
+                <span style="font-size:0.85rem; font-weight:600; color:var(--text-secondary);">${rep.code || '-'}</span>
+                <span style="font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${rep.title}">${rep.title}</span>
+                <span style="font-size:0.85rem; color:var(--text-secondary);">${typeText}</span>
+                <span style="font-size:0.85rem; color:var(--text-secondary);">${startDate}</span>
+                
+                <div class="status-selector-wrapper">
+                     <select class="status-select-sm" data-id="${rep.id}" style="padding:0.25rem; font-size:0.8rem; border-radius:4px; border:1px solid #e2e8f0; bg: #f8fafc; width:100%;">
+                        <option value="baslanmadi" ${rep.status === 'baslanmadi' ? 'selected' : ''}>Başlanmadı</option>
+                        <option value="devam-ediyor" ${rep.status === 'devam-ediyor' ? 'selected' : ''}>Devam Ediyor</option>
+                        <option value="evrak-bekleniyor" ${rep.status === 'evrak-bekleniyor' ? 'selected' : ''}>Evrak Bek.</option>
+                        <option value="incelemecide" ${rep.status === 'incelemecide' ? 'selected' : ''}>İncelemede</option>
+                        <option value="tamamlandi" ${rep.status === 'tamamlandi' ? 'selected' : ''}>Tamamlandı</option>
+                    </select>
+                </div>
+
+                <span style="font-size:0.85rem; font-weight:500; color:${dateColor}; white-space:nowrap;">${dateText}</span>
+                <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:${statusDotColor}; margin:auto;" title="Durum"></span>
+                
+                <div style="display:flex; justify-content:flex-end; gap:0.25rem;">
+                     <button class="btn-icon-sm create-template" data-id="${rep.id}" title="Rapor Yazımına Başla">
+                        <span class="material-icons-round" style="font-size:1.1rem; color:#2563eb;">description</span>
+                    </button>
+                     <button class="btn-icon-sm toggle-checklist" data-id="${rep.id}" title="Yapılacaklar">
+                        <span class="material-icons-round" style="font-size:1.1rem; color:var(--primary-color);">playlist_add_check</span>
+                    </button>
+                    <button class="btn-icon-sm open-folder" data-id="${rep.id}" title="Klasör Yolunu Kopyala">
+                        <span class="material-icons-round" style="font-size:1.1rem; color:#64748b;">folder_open</span>
+                    </button>
+                    <button class="btn-icon-sm edit-report" data-id="${rep.id}" title="Düzenle">
+                        <span class="material-icons-round" style="font-size:1.1rem; color:#64748b;">edit</span>
+                    </button>
+                    <button class="btn-icon-sm delete-report" data-id="${rep.id}" title="Sil">
+                        <span class="material-icons-round" style="font-size:1.1rem; color:var(--danger);">delete</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Checklist Area (Full Width) -->
+            <div id="checklist-${rep.id}" class="checklist-container" style="display:none; padding: 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                <h5 style="margin-bottom:0.5rem; font-size:0.9rem; color:var(--text-secondary);">İş Adımları (${rep.code})</h5>
+                <div class="checklist-items" id="items-${rep.id}">
+                    ${(rep.checklist || []).map(item => `
+                        <div class="checklist-item" style="display:flex; align-items:center; margin-bottom:0.5rem;">
+                            <input type="checkbox" ${item.completed ? 'checked' : ''} onchange="UIManager.toggleChk(${rep.id}, ${item.id})" style="margin-right:0.5rem;">
+                            <span style="flex:1; text-decoration: ${item.completed ? 'line-through' : 'none'}; opacity:${item.completed ? 0.6 : 1}">${item.text}</span>
+                             <button class="btn-icon" onclick="UIManager.deleteChk(${rep.id}, ${item.id})" style="color:var(--danger); font-size:0.9rem;"><span class="material-icons-round">close</span></button>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="checklist-input" style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                    <input type="text" id="chk-input-${rep.id}" placeholder="Yeni adım ekle..." style="flex:1; padding:0.4rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.9rem;">
+                    <button class="btn btn-sm btn-primary" onclick="UIManager.addChk(${rep.id})">Ekle</button>
+                </div>
+            </div>
+            `;
+        }).join('');
+
+        // Listeners
+        document.querySelectorAll('.create-template').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                if (typeof DocumentManager !== 'undefined') {
+                    DocumentManager.createTemplate(id);
+                } else {
+                    alert('Hata: DocumentManager yüklenemedi.');
+                }
+            });
+        });
+
+        document.querySelectorAll('.open-folder').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                const reports = ReportManager.getReports();
+                const rep = reports.find(r => r.id === id);
+                if (!rep) return;
+
+                // Path Calculation Logic (Same as FolderManager)
+                const dateObj = rep.startDate ? new Date(rep.startDate) : new Date();
+                const year = dateObj.getFullYear();
+
+                const typeLabels = {
+                    'inceleme': 'İnceleme',
+                    'sorusturma': 'Soruşturma',
+                    'genel-denetim': 'Genel Denetim',
+                    'ozel-denetim': 'Özel Denetim',
+                    'on-inceleme': 'Ön İnceleme',
+                    'on-arastirma': 'Ön Araştırma'
+                };
+                const typeName = typeLabels[rep.type] || 'Diğer';
+                const safeCode = (rep.code || '').replace(/[<>:"/\\|?*]/g, '_');
+                const safeTitle = (rep.title || '').replace(/[<>:"/\\|?*]/g, '_');
+                const folderName = `${safeCode} - ${safeTitle}`;
+
+                const fullPath = `C:\\MufettisYard\\${year}\\${typeName}\\${folderName}`;
+
+                // Try to use Electron directly (Node Integration) or Bridge (Preload)
+                let ipc = null;
+                if (window.electronAPI) {
+                    // Preload method
+                    window.electronAPI.openFolder(fullPath).then(handleResult);
+                } else if (typeof require !== 'undefined') {
+                    // Direct Node Integration method
+                    try {
+                        const { ipcRenderer } = require('electron');
+                        ipcRenderer.invoke('folder:open', fullPath).then(handleResult);
+                    } catch (e) {
+                        console.error('Electron require failed', e);
+                        fallbackCopy();
+                    }
+                } else {
+                    fallbackCopy();
+                }
+
+                function handleResult(result) {
+                    if (!result.success) {
+                        alert('Klasör açılamadı: ' + result.error);
+                    }
+                }
+
+                function fallbackCopy() {
+                    navigator.clipboard.writeText(fullPath).then(() => {
+                        alert(`Klasör yolu kopyalandı:\n${fullPath}\n\n(Otomatik açma başarısız oldu, lütfen manuel açın.)`);
+                    });
+                }
+            });
+        });
+        document.querySelectorAll('.delete-report').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (confirm('Bu rapor kaydını silmek istediğinize emin misiniz?')) {
+                    const id = parseInt(e.currentTarget.dataset.id);
+                    ReportManager.deleteReport(id);
+                    UIManager.renderReports(ReportManager.getReports());
+                }
+            });
+        });
+
+        document.querySelectorAll('.status-select').forEach(select => {
+            select.addEventListener('change', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                ReportManager.updateStatus(id, e.target.value);
+                UIManager.renderReports(ReportManager.getReports());
+            });
+        });
+
+        document.querySelectorAll('.toggle-checklist').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                const container = document.getElementById(`checklist-${id}`);
+                const isHidden = container.style.display === 'none';
+                container.style.display = isHidden ? 'block' : 'none';
+            });
+        });
+
+        document.querySelectorAll('.print-report').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                printReport(id);
+            });
+        });
+
+        document.querySelectorAll('.edit-report').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                const reports = ReportManager.getReports();
+                const report = reports.find(r => r.id === id);
+                if (report) {
+                    document.getElementById('rep-code').value = report.code;
+                    document.getElementById('rep-title').value = report.title;
+                    document.getElementById('rep-type').value = report.type;
+                    document.getElementById('rep-start').value = report.startDate;
+                    document.getElementById('rep-duration').value = report.duration;
+
+                    const addBtn = document.getElementById('add-rep-btn');
+                    addBtn.innerHTML = '<span class="material-icons-round">save</span> Değişiklikleri Kaydet';
+                    addBtn.dataset.mode = 'edit';
+                    addBtn.dataset.editId = id;
+
+                    document.querySelector('.section-container').scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+    },
+
+    addChk: (repId) => {
+        const input = document.getElementById(`chk-input-${repId}`);
+        if (input && input.value.trim()) {
+            ReportManager.addChecklistItem(repId, input.value.trim());
+            UIManager.renderReports(ReportManager.getReports());
+            setTimeout(() => {
+                const container = document.getElementById(`checklist-${repId}`);
+                if (container) container.style.display = 'block';
+            }, 50);
+        }
+    },
+
+    toggleChk: (repId, itemId) => {
+        ReportManager.toggleChecklistItem(repId, itemId);
+        UIManager.renderReports(ReportManager.getReports());
+        setTimeout(() => {
+            const container = document.getElementById(`checklist-${repId}`);
+            if (container) container.style.display = 'block';
+        }, 50);
+    },
+
+    exportToExcel: () => {
+        try {
+            const reports = ReportManager.getReports();
+            const activeReports = reports.filter(r => r.status !== 'tamamlandi');
+            const today = new Date();
+
+            // CSV Header
+            let csvContent = "Rapor İsmi;Rapor Türü;Rapor Tarihi;Durum;Kalan Gün\n";
+
+            activeReports.forEach(r => {
+                const deadline = new Date(r.deadline);
+                const diffTime = deadline - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                const statusLabels = {
+                    'baslanmadi': 'Başlanmadı',
+                    'devam': 'Devam Ediyor',
+                    'taslak': 'Taslak Aşamasında',
+                    'imza': 'İmza Aşamasında',
+                    'tamamlandi': 'Tamamlandı'
+                };
+                const statusText = statusLabels[r.status] || r.status;
+
+                const typeLabels = {
+                    'inceleme': 'İnceleme',
+                    'sorusturma': 'Soruşturma',
+                    'genel-denetim': 'Genel Denetim',
+                    'ozel-denetim': 'Özel Denetim',
+                    'on-inceleme': 'Ön İnceleme',
+                    'on-arastirma': 'Ön Araştırma'
+                };
+
+                const row = [
+                    `"${r.title}"`,
+                    `"${typeLabels[r.type] || r.type}"`,
+                    `"${new Date(r.deadline).toLocaleDateString('tr-TR')}"`,
+                    `"${statusText}"`,
+                    `"${diffDays}"`
+                ];
+                csvContent += row.join(';') + "\n";
+            });
+
+            // Add BOM for Excel UTF-8 compatibility
+            const BOM = "\uFEFF";
+            const fileContent = BOM + csvContent;
+
+            if (typeof require !== 'undefined') {
+                const fs = require('fs');
+                const path = require('path');
+                const { shell } = require('electron');
+
+                const timestamp = new Date().toLocaleDateString('tr-TR').replace(/\./g, '_');
+                const filename = `Bekleyen_Gorevler_${timestamp}.csv`;
+                const targetDir = 'C:\\MufettisYard\\SonDurum';
+                const fullPath = path.join(targetDir, filename);
+
+                // Ensure directory exists
+                if (!fs.existsSync(targetDir)) {
+                    fs.mkdirSync(targetDir, { recursive: true });
+                }
+
+                fs.writeFileSync(fullPath, fileContent, 'utf-8');
+
+                // User Feedback & Folder Access
+                if (confirm(`Excel dosyası oluşturuldu!\n\nKonum: ${fullPath}\n\nDosyanın bulunduğu klasörü açmak ister misiniz?`)) {
+                    shell.showItemInFolder(fullPath);
+                }
+            } else {
+                alert('Bu özellik sadece masaüstü uygulamasında çalışır.');
+            }
+        } catch (error) {
+            console.error('Excel export failed:', error);
+            alert('Excel oluşturulurken hata oluştu: ' + error.message);
+        }
+    },
+
+    deleteChk: (repId, itemId) => {
+        ReportManager.deleteChecklistItem(repId, itemId);
+        UIManager.renderReports(ReportManager.getReports());
+        setTimeout(() => {
+            const container = document.getElementById(`checklist-${repId}`);
+            if (container) container.style.display = 'block';
+        }, 50);
+    },
+
+    initReportsView: () => {
+        const container = document.getElementById('content-area');
+        container.innerHTML = `
+            <div class="section-container">
+                <div class="form-grid" style="margin-bottom: 1rem;">
+                    <div class="form-group">
+                        <label>Rapor Kodu</label>
+                        <input type="text" id="rep-code" placeholder="S.Y.64/YYYY-N">
+                    </div>
+                    <div class="form-group">
+                        <label>Rapor Adı</label>
+                        <input type="text" id="rep-title" placeholder="Örn: X Belediyesi İncelemesi">
+                    </div>
+                     <div class="form-group">
+                        <label>Rapor Türü</label>
+                         <select id="rep-type">
+                            <option value="inceleme">İnceleme</option>
+                            <option value="sorusturma">Soruşturma</option>
+                            <option value="genel-denetim">Genel Denetim</option>
+                            <option value="ozel-denetim">Özel Denetim</option>
+                            <option value="on-inceleme">Ön İnceleme</option>
+                            <option value="on-arastirma">Ön Araştırma (8/G)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Başlama Tarihi</label>
+                        <input type="date" id="rep-start">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Süre (Gün)</label>
+                        <input type="number" id="rep-duration" placeholder="Örn: 30">
+                    </div>
+                </div>
+
+                <div class="form-group" style="display:flex; align-items:flex-end;">
+                    <button id="add-rep-btn" class="btn btn-primary" style="width:100%;">
+                        <span class="material-icons-round">post_add</span>
+                        Rapor Oluştur
+                    </button>
+                </div>
+            </div>
+
+            <div class="section-container" style="margin-top: 1.5rem;">
+                <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3>Görev Dosyaları</h3>
+                    <div class="filters" style="display:flex; gap:0.5rem;">
+                        <input type="text" id="search-reports" placeholder="Görev ara..." class="search-input">
+                    </div>
+                </div>
+                
+                 <!-- Table Header -->
+                <div style="margin-top:1rem; padding: 0.75rem 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px 8px 0 0; display:grid; grid-template-columns: 1fr 2.5fr 1fr 1fr 1.2fr 1fr 0.5fr 1.5fr; gap:0.5rem; font-size:0.85rem; font-weight:600; color:var(--text-secondary);">
+                    <span>Rapor No</span>
+                    <span>Görev Adı</span>
+                    <span>Türü</span>
+                    <span>Olur Tarihi</span>
+                    <span>Rapor Durumu</span>
+                    <span>Süre</span>
+                    <span>Drm</span>
+                    <span style="text-align:right;">İşlemler</span>
+                </div>
+                
+                <div id="report-list" class="inspection-list" style="margin-top:0; border: 1px solid #e2e8f0; border-top:none; border-radius: 0 0 8px 8px; min-height: 50px;"></div>
+            </div>
+        `;
+
+        // Render immediately
+        setTimeout(() => {
+            UIManager.renderReports(ReportManager.getReports());
+        }, 0);
+
+        // Pre-fill Report Code
+        const codeInput = document.getElementById('rep-code');
+        if (codeInput) codeInput.value = ReportManager.generateReportCode();
+
+        document.getElementById('search-reports').addEventListener('input', (e) => {
+            UIManager.renderReports(ReportManager.getReports(), e.target.value);
+        });
+
+
+
+        document.getElementById('add-rep-btn').addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const mode = btn.dataset.mode || 'add';
+
+            const code = document.getElementById('rep-code').value;
+            const title = document.getElementById('rep-title').value;
+            const type = document.getElementById('rep-type').value;
+            const startDate = document.getElementById('rep-start').value;
+            const duration = document.getElementById('rep-duration').value;
+
+            if (title && startDate && duration) {
+                if (mode === 'edit') {
+                    // Update Logic
+                    const id = parseInt(btn.dataset.editId);
+                    ReportManager.updateReport(id, { code, title, type, startDate, duration });
+
+                    // Reset Button
+                    btn.innerHTML = '<span class="material-icons-round">post_add</span> Rapor Oluştur';
+                    delete btn.dataset.mode;
+                    delete btn.dataset.editId;
+                } else {
+                    // Create Logic
+                    ReportManager.addReport({ code, title, type, startDate, duration });
+                }
+
+                UIManager.renderReports(ReportManager.getReports());
+
+                // Reset Form
+                document.getElementById('rep-title').value = '';
+                document.getElementById('rep-start').value = '';
+                document.getElementById('rep-duration').value = '';
+                document.getElementById('rep-code').value = ReportManager.generateReportCode();
+            } else {
+                alert('Lütfen zorunlu alanları (Rapor Adı, Başlama Tarihi, Süre) doldurunuz.');
+            }
+        });
+    },
+
+    renderTasks: (tasks, filterText = '') => {
+        const list = document.getElementById('task-list');
+        if (!list) return;
+
+        if (filterText) {
+            const lower = filterText.toLowerCase();
+            tasks = tasks.filter(t => t.content.toLowerCase().includes(lower));
+        }
+
+        if (tasks.length === 0) {
+            list.innerHTML = `
+                <div class="empty-state">
+                    <p>Listeniz boş. Harika gidiyorsunuz! 🎉</p>
+                </div>`;
+            return;
+        }
+
+        // Tamamlananları alta atacak şekilde sırala
+        tasks.sort((a, b) => {
+            if (a.completed === b.completed) return b.id - a.id; // Yeniler üstte
+            return a.completed ? 1 : -1;
+        });
+
+        list.innerHTML = tasks.map(task => `
+            <div class="task-item ${task.completed ? 'completed' : ''}">
+                <div class="task-checkbox-wrapper">
+                    <input type="checkbox" class="task-checkbox" data-id="${task.id}" ${task.completed ? 'checked' : ''}>
+                </div>
+                <div class="task-content">${task.content}</div>
+                <div class="task-meta">
+                    ${task.priority === 'high' ? '<span class="priority-badge priority-high">ACİL</span>' : ''}
+                    <button class="btn-icon delete-task" data-id="${task.id}" title="Sil">
+                        <span class="material-icons-round">delete</span>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        // Event Listeners
+        document.querySelectorAll('.task-checkbox').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const id = parseInt(e.target.dataset.id);
+                TaskManager.toggleTask(id);
+                UIManager.renderTasks(TaskManager.getTasks());
+                updateDashboardStatsIfVisible(); // Dashboard açıksa güncelle
+            });
+        });
+
+        document.querySelectorAll('.delete-task').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                TaskManager.deleteTask(id);
+                UIManager.renderTasks(TaskManager.getTasks());
+                updateDashboardStatsIfVisible();
+            });
+        });
+    },
+
+
+
+    renderContacts: (contacts, filterText = '') => {
+        const grid = document.getElementById('contacts-grid');
+        if (!grid) return;
+
+        if (filterText) {
+            const lower = filterText.toLowerCase();
+            contacts = contacts.filter(c =>
+                c.name.toLowerCase().includes(lower) ||
+                c.role.toLowerCase().includes(lower) ||
+                (c.relatedJob && c.relatedJob.toLowerCase().includes(lower))
+            );
+        }
+
+        if (contacts.length === 0) {
+            grid.innerHTML = '<div class="empty-state">Henüz kişi eklenmemiş.</div>';
+            return;
+        }
+
+        grid.innerHTML = contacts.map(c => `
+            <div class="contact-card">
+                <div class="contact-avatar">
+                   <span class="material-icons-round">person</span>
+                </div>
+                <div class="contact-info">
+                    <h4>${c.name}</h4>
+                    <span class="contact-role">${c.role}</span>
+                    ${c.relatedJob ? `<span class="contact-job" style="font-size:0.75rem; color:var(--primary-color); display:block; margin-top:0.2rem; font-weight:500;">İş: ${c.relatedJob}</span>` : ''}
+                </div>
+                <div class="contact-details">
+                     <div class="c-detail"><span class="material-icons-round">phone</span> ${c.phone}</div>
+                     <div class="c-detail"><span class="material-icons-round">email</span> ${c.email}</div>
+                </div>
+                <div class="contact-actions">
+                    <button class="btn-icon edit-contact" data-id="${c.id}" title="Düzenle">
+                        <span class="material-icons-round">edit</span>
+                    </button>
+                    <button class="btn-icon delete-contact" data-id="${c.id}" title="Sil">
+                        <span class="material-icons-round">delete</span>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        document.querySelectorAll('.delete-contact').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (confirm('Bu kişiyi silmek istiyor musunuz?')) {
+                    const id = parseInt(e.currentTarget.dataset.id);
+                    ContactsManager.deleteContact(id);
+                    UIManager.renderContacts(ContactsManager.getContacts());
+                }
+            });
+        });
+
+        document.querySelectorAll('.edit-contact').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                const contacts = ContactsManager.getContacts();
+                const contact = contacts.find(c => c.id === id);
+
+                if (contact) {
+                    // Populate Add Form
+                    document.getElementById('contact-name').value = contact.name;
+                    document.getElementById('contact-role').value = contact.role;
+                    document.getElementById('contact-phone').value = contact.phone;
+                    document.getElementById('contact-email').value = contact.email;
+                    document.getElementById('contact-job').value = contact.relatedJob || '';
+
+                    // Change Button to 'Save'
+                    const addBtn = document.getElementById('add-contact-btn');
+                    addBtn.innerHTML = '<span class="material-icons-round">save</span> Değişiklikleri Kaydet'; // Fixed text
+                    addBtn.dataset.mode = 'edit';
+                    addBtn.dataset.editId = id;
+
+                    // Scroll to form
+                    document.querySelector('.section-container').scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+    },
+
+    initContactsView: () => {
+        const container = document.getElementById('content-area');
+        container.innerHTML = `
+            <div class="section-container">
+                 <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                    <div class="form-group">
+                        <input type="text" id="contact-name" placeholder="Ad Soyad">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="contact-role" placeholder="Görev/Ünvan">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="contact-job" placeholder="Hangi İş (Opsiyonel)">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="contact-phone" placeholder="Telefon">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="contact-email" placeholder="E-Posta">
+                    </div>
+                    <div class="form-group">
+                         <button id="add-contact-btn" class="btn btn-primary" style="justify-content:center;">
+                            <span class="material-icons-round">person_add</span> Ekle
+                        </button>
+                    </div>
+                </div>
+                <div class="section-header" style="margin-top:2rem; display: flex; justify-content: space-between; align-items: center;">
+                    <h3>Kişi Rehberi</h3>
+                     <div class="filters">
+                        <input type="text" id="search-contacts" placeholder="Kişi ara..." class="search-input">
+                    </div>
+                </div>
+                <div id="contacts-grid" class="contacts-grid"></div>
+            </div>
+        `;
+        UIManager.renderContacts(ContactsManager.getContacts());
+
+        document.getElementById('search-contacts').addEventListener('input', (e) => {
+            UIManager.renderContacts(ContactsManager.getContacts(), e.target.value);
+        });
+
+        document.getElementById('add-contact-btn').addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const name = document.getElementById('contact-name').value;
+            const role = document.getElementById('contact-role').value;
+            const phone = document.getElementById('contact-phone').value;
+            const email = document.getElementById('contact-email').value;
+            const job = document.getElementById('contact-job').value;
+
+            if (name && role) {
+                const data = {
+                    name: name,
+                    role: role,
+                    phone: phone,
+                    email: email,
+                    relatedJob: job
+                };
+
+                if (btn.dataset.mode === 'edit') {
+                    const id = parseInt(btn.dataset.editId);
+                    ContactsManager.updateContact(id, data);
+
+                    // Reset Button
+                    btn.innerHTML = '<span class="material-icons-round">person_add</span> Ekle';
+                    delete btn.dataset.mode;
+                    delete btn.dataset.editId;
+                } else {
+                    ContactsManager.addContact(data);
+                }
+
+                // Clear Inputs
+                document.getElementById('contact-name').value = '';
+                document.getElementById('contact-role').value = '';
+                document.getElementById('contact-phone').value = '';
+                document.getElementById('contact-email').value = '';
+                document.getElementById('contact-job').value = '';
+
+                UIManager.renderContacts(ContactsManager.getContacts());
+            } else {
+                alert('Lütfen Ad Soyad ve Rol alanlarını doldurun.');
+            }
+        });
+    },
+
+    initSettingsView: () => {
+        const container = document.getElementById('content-area');
+        const user = AuthManager.getUser();
+
+        container.innerHTML = `
+            <div class="section-container">
+                <div class="section-header">
+                    <h3>Ayarlar & Profil</h3>
+                </div>
+
+                <div class="settings-grid">
+                    <!-- Profil Ayarları -->
+                    <div class="settings-card">
+                        <h4>Profil Bilgileri</h4>
+                        <div class="form-group">
+                            <label>Ad Soyad (Ünvan)</label>
+                            <input type="text" id="set-fullname" value="${user ? user.fullname : ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Kullanıcı Adı</label>
+                            <input type="text" id="set-username" value="${user ? user.username : ''}" disabled style="background:#f1f5f9; cursor:not-allowed;" title="Kullanıcı adı değiştirilemez">
+                        </div>
+                         <div class="form-group">
+                            <label>Güvenlik Sorusu</label>
+                            <input type="text" id="set-question" value="${user ? user.question : ''}" placeholder="Örn: En sevdiğim renk?">
+                        </div>
+                        <div class="form-group">
+                            <label>Güvenlik Cevabı</label>
+                            <input type="text" id="set-answer" placeholder="Değiştirmek için yeni cevap girin">
+                        </div>
+                        <button class="btn btn-primary" id="save-profile-btn" style="width:100%; margin-top:1rem;">
+                            <span class="material-icons-round">save</span> Profili Güncelle
+                        </button>
+                    </div>
+
+                    <!-- Şifre Ayarları -->
+                    <div class="settings-card">
+                        <h4>Şifre Değiştir</h4>
+                        <div class="form-group">
+                            <label>Mevcut Şifre</label>
+                            <input type="password" id="old-pass" placeholder="******">
+                        </div>
+                        <div class="form-group">
+                            <label>Yeni Şifre</label>
+                            <input type="password" id="new-pass" placeholder="******">
+                        </div>
+                        <button class="btn btn-outline" id="change-pass-btn" onclick="SettingsManager.changePasswordUI()" style="width:100%; margin-top:1rem; border-color:var(--danger); color:var(--danger);">
+                            <span class="material-icons-round">lock_reset</span> Şifreyi Değiştir
+                        </button>
+                    </div>
+
+                    <!-- Görünüm Ayarları -->
+                    <div class="settings-card">
+                        <h4>Görünüm Özelleştirme</h4>
+                        
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Yazı Tipi</span>
+                                <span class="setting-desc">Uygulama genel yazı karakteri</span>
+                            </div>
+                            <select id="set-font" onchange="ThemeManager.applyFont(this.value)" style="padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-main);">
+                                <option value="Inter">Inter</option>
+                                <option value="Roboto">Roboto</option>
+                                <option value="Merriweather">Merriweather</option>
+                                <option value="Patrick Hand">Patrick Hand</option>
+                                <option value="Ubuntu Mono">Ubuntu Mono</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Tema Rengi (Vurgu)</span>
+                                <span class="setting-desc">Buton ve aktif öğe renkleri</span>
+                            </div>
+                            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                                <button class="color-btn" style="background:#1a237e" onclick="ThemeManager.applyColor('#1a237e')" title="Lacivert"></button>
+                                <button class="color-btn" style="background:#2563eb" onclick="ThemeManager.applyColor('#2563eb')" title="Mavi"></button>
+                                <button class="color-btn" style="background:#7c3aed" onclick="ThemeManager.applyColor('#7c3aed')" title="Mor"></button>
+                                <button class="color-btn" style="background:#db2777" onclick="ThemeManager.applyColor('#db2777')" title="Pembe"></button>
+                                <button class="color-btn" style="background:#dc2626" onclick="ThemeManager.applyColor('#dc2626')" title="Kırmızı"></button>
+                                <button class="color-btn" style="background:#ea580c" onclick="ThemeManager.applyColor('#ea580c')" title="Turuncu"></button>
+                                <button class="color-btn" style="background:#059669" onclick="ThemeManager.applyColor('#059669')" title="Yeşil"></button>
+                            </div>
+                        </div>
+
+                         <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Karanlık Mod</span>
+                                <span class="setting-desc">Göz yormayan koyu tema</span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="theme-switch" onchange="ThemeManager.toggle()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Yedekleme -->
+                    <div class="settings-card">
+                        <h4>Yedekleme & Geri Yükleme</h4>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Yedek Al (İndir)</span>
+                                <span class="setting-desc">Tüm verilerinizi bilgisayara indirin</span>
+                            </div>
+                             <button class="btn btn-sm btn-outline" onclick="StorageManager.exportData()">
+                                <span class="material-icons-round">download</span> İndir
+                            </button>
+                        </div>
+
+                         <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Yedek Yükle</span>
+                                <span class="setting-desc">Daha önce alınan yedeği geri yükleyin</span>
+                            </div>
+                             <button class="btn btn-sm btn-outline" onclick="document.getElementById('import-file-settings').click()">
+                                <span class="material-icons-round">upload</span> Yükle
+                            </button>
+                            <input type="file" id="import-file-settings" style="display:none;" onchange="handleFileImport(this)">
+                        </div>
+
+                    </div>
+                </div>
+
+                </div>
+            </div>
+        `;
+
+        // Set Theme Switch State
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.getElementById('theme-switch').checked = isDark;
+
+        // Set Customization States
+        const savedFont = StorageManager.get('font', 'Inter');
+        const fontSelect = document.getElementById('set-font');
+        if (fontSelect) fontSelect.value = savedFont;
+
+        // Event Listeners
+        document.getElementById('save-profile-btn').addEventListener('click', () => {
+            const fullname = document.getElementById('set-fullname').value.trim();
+            const question = document.getElementById('set-question').value;
+            const answer = document.getElementById('set-answer').value.trim();
+            if (fullname) {
+                SettingsManager.updateProfile(fullname, question, answer);
+            } else {
+                alert('Ad Soyad boş olamaz.');
+            }
+        });
+
+        // Password Change Listener Moved to Inline OnClick for robustness
+    },
+
+    initCalendarView: () => {
+        const container = document.getElementById('content-area');
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+
+        container.innerHTML = `
+            <div class="calendar-header">
+                <button class="btn-icon" disabled><span class="material-icons-round">chevron_left</span></button>
+                <div class="calendar-title">${monthNames[currentMonth]} ${currentYear}</div>
+                <button class="btn-icon" disabled><span class="material-icons-round">chevron_right</span></button>
+            </div>
+            <div class="calendar-grid">
+                <div class="cal-day-header">Pt</div>
+                <div class="cal-day-header">Sa</div>
+                <div class="cal-day-header">Ça</div>
+                <div class="cal-day-header">Pe</div>
+                <div class="cal-day-header">Cu</div>
+                <div class="cal-day-header">Ct</div>
+                <div class="cal-day-header">Pz</div>
+            </div>
+        `;
+
+        const grid = container.querySelector('.calendar-grid');
+        const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+        const emptyCells = (firstDay === 0 ? 7 : firstDay) - 1;
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+        for (let i = 0; i < emptyCells; i++) grid.innerHTML += `<div class="cal-day empty" style="background:#f1f5f9; border:none;"></div>`;
+
+        const reports = ReportManager.getReports();
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const isToday = (day === now.getDate() && currentMonth === now.getMonth() && currentYear === now.getFullYear());
+
+            let eventsHTML = '';
+            reports.forEach(rep => {
+                if (rep.startDate === dateStr) eventsHTML += `<div class="cal-event type-start" title="${rep.title}">${rep.code} Başladı</div>`;
+                if (rep.deadline === dateStr) eventsHTML += `<div class="cal-event type-end" title="${rep.title}">${rep.code} Bitiş</div>`;
+            });
+
+            grid.innerHTML += `
+                <div class="cal-day ${isToday ? 'today' : ''}">
+                    <div class="cal-day-num">${day}</div>
+                    ${eventsHTML}
+                </div>
+             `;
+        }
+    },
+
+    initTasksView: () => {
+        const container = document.getElementById('content-area');
+        container.innerHTML = `
+            <div class="section-container">
+                <div class="task-input-card">
+                    <div style="display:flex; align-items:center;">
+                         <span class="material-icons-round" style="color:var(--text-secondary); margin-right:1rem; font-size:1.5rem;">add_task</span>
+                         <input type="text" id="new-task-input" placeholder="Bugün ne yapmak istiyorsun?" class="clean-task-input">
+                    </div>
+                    <div class="task-input-footer">
+                        <div class="priority-selector">
+                            <label class="priority-option option-normal selected">
+                                <input type="radio" name="priority" value="normal" checked>
+                                Normal
+                            </label>
+                            <label class="priority-option option-high">
+                                <input type="radio" name="priority" value="high">
+                                Acil
+                            </label>
+                        </div>
+                        <button id="add-task-btn" class="btn btn-primary btn-sm">
+                            Ekle <span class="material-icons-round" style="font-size:1.1rem; margin-left:4px;">arrow_upward</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="section-header" style="margin-top: 2rem; display:flex; justify-content:space-between; align-items:center;">
+                    <h3>Yapılacaklar Listesi</h3>
+                     <div class="filters">
+                        <input type="text" id="search-tasks" placeholder="Görev ara..." class="search-input">
+                    </div>
+                </div>
+                <!-- Stats hidden/moved to keep clean, or we can put it below -->
+                
+                <div id="task-list" class="task-list"></div>
+            </div>
+        `;
+
+        UIManager.renderTasks(TaskManager.getTasks());
+
+        document.getElementById('search-tasks').addEventListener('input', (e) => {
+            UIManager.renderTasks(TaskManager.getTasks(), e.target.value);
+        });
+
+
+        // Priority Selection Visual Logic
+        document.querySelectorAll('.priority-option input').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                document.querySelectorAll('.priority-option').forEach(bs => bs.classList.remove('selected'));
+                e.target.parentElement.classList.add('selected');
+            });
+        });
+
+        const handleAddTask = () => {
+            const input = document.getElementById('new-task-input');
+            const priorityInput = document.querySelector('input[name="priority"]:checked');
+            const content = input.value.trim();
+
+            if (content) {
+                TaskManager.addTask(content, priorityInput.value);
+                input.value = '';
+                // Reset Priority to Normal
+                document.querySelector('input[name="priority"][value="normal"]').checked = true;
+                document.querySelectorAll('.priority-option').forEach(bs => bs.classList.remove('selected'));
+                document.querySelector('.priority-option.option-normal').classList.add('selected');
+
+                UIManager.renderTasks(TaskManager.getTasks());
+            }
+        };
+
+        document.getElementById('add-task-btn').addEventListener('click', handleAddTask);
+        document.getElementById('new-task-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleAddTask();
+        });
+    }
+};
+
+// Yardımcı: Dashboard açıksa istatistikleri güncelle (basit bir hack)
+function updateDashboardStatsIfVisible() {
+    // Eğer o an dashboard açıksa, live update yapmak isteyebiliriz ama şimdilik sadece task listesinden dashboard'a dönünce güncellenecek.
+    // Bu fonksiyon şu an placeholder.
+}
+
+function handleFileImport(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        StorageManager.importData(e.target.result);
+    };
+    reader.readAsText(file);
+    input.value = ''; // Reset
+}
+
+// --- App Initialization ---
+document.addEventListener('DOMContentLoaded', () => {
+    // checkLogin(); // Giriş iptal edildi
+    initApp();
+});
+
+// --- Auth Manager ---
+const AuthManager = {
+    getUser: () => {
+        const userStr = localStorage.getItem('app_user');
+        return userStr ? JSON.parse(userStr) : null;
+    },
+
+    register: () => {
+        const fullname = document.getElementById('reg-fullname').value.trim();
+        const username = document.getElementById('reg-username').value.trim();
+        const password = document.getElementById('reg-password').value;
+        const question = document.getElementById('reg-question').value;
+        const answer = document.getElementById('reg-answer').value.trim();
+
+        if (!fullname || !username || !password || !answer) {
+            alert('Lütfen tüm alanları doldurunuz.');
+            return;
+        }
+
+        const user = {
+            fullname,
+            username,
+            password, // Gerçek bir uygulamada hashlenmeli
+            question,
+            answer: answer.toLowerCase()
+        };
+
+        localStorage.setItem('app_user', JSON.stringify(user));
+        alert('Kurulum başarıyla tamamlandı! Giriş yapılıyor...');
+
+        sessionStorage.setItem('isLoggedIn', 'true');
+        AuthManager.completeLogin(user);
+    },
+
+    login: () => {
+        try {
+            console.log('Login attempt...');
+            const usernameInputEl = document.getElementById('login-username');
+            const passwordInputEl = document.getElementById('login-password');
+            const errorMsg = document.getElementById('login-error');
+
+            if (!usernameInputEl || !passwordInputEl) {
+                alert('Hata: Giriş kutuları bulunamadı!');
+                return;
+            }
+
+            const usernameInput = usernameInputEl.value.trim();
+            const passwordInput = passwordInputEl.value;
+
+            // Debug - Bunu canlıda yapmayız ama sorunu çözmek için:
+            // alert('Girilen: ' + usernameInput + ' / ' + passwordInput);
+
+            const user = AuthManager.getUser();
+
+            if (!user) {
+                alert('Sistemde kayıtlı kullanıcı bulunamadı. Lütfen önce KURULUM yapın.');
+                return;
+            }
+
+            if (user.username === usernameInput && user.password === passwordInput) {
+                sessionStorage.setItem('isLoggedIn', 'true');
+                errorMsg.style.display = 'none';
+                AuthManager.completeLogin(user);
+            } else {
+                errorMsg.style.display = 'block';
+                errorMsg.textContent = 'Kullanıcı adı veya şifre hatalı.';
+                // alert('Hata: Şifre uyuşmadı. Kayıtlı olan: ' + user.username);
+            }
+        } catch (e) {
+            alert('Giriş Hatası: ' + e.message);
+        }
+    },
+
+    completeLogin: (user) => {
+        document.getElementById('login-overlay').style.display = 'none';
+        // Karşılama mesajı opsiyonel
+        // document.getElementById('page-header').textContent = `Hoşgeldin, ${user.fullname}`;
+    },
+
+    logout: () => {
+        sessionStorage.removeItem('isLoggedIn');
+        location.reload();
+    },
+
+    handleKey: (event, type) => {
+        if (event.key === 'Enter') {
+            if (type === 'login') AuthManager.login();
+        }
+    },
+
+    showScreen: (screenName) => {
+        try {
+            console.log('Switching to screen:', screenName);
+            const loginEl = document.getElementById('auth-login');
+            const regEl = document.getElementById('auth-register');
+            const forgotEl = document.getElementById('auth-forgot');
+            const targetEl = document.getElementById(`auth-${screenName}`);
+
+            if (!loginEl || !regEl || !forgotEl) {
+                alert('Hata: Ekranlar HTML içinde bulunamadı. Lütfen sayfayı yenileyin.');
+                return;
+            }
+
+            loginEl.style.display = 'none';
+            regEl.style.display = 'none';
+            forgotEl.style.display = 'none';
+
+            if (targetEl) {
+                targetEl.style.display = 'block'; // Fixed: flex caused horizontal stacking
+            } else {
+                alert('Hata: Hedef ekran bulunamadı: ' + screenName);
+            }
+
+            // Reset inputs
+            if (screenName === 'login') {
+                const err = document.getElementById('login-error');
+                if (err) err.style.display = 'none';
+            }
+        } catch (e) {
+            alert('Ekran geçiş hatası: ' + e.message);
+        }
+    },
+
+    // Password Recovery Logic
+    checkRecoveryUser: () => {
+        const username = document.getElementById('forgot-username').value.trim();
+        const user = AuthManager.getUser();
+
+        if (user && user.username === username) {
+            document.getElementById('forgot-step-1').style.display = 'none';
+            document.getElementById('forgot-step-2').style.display = 'block';
+
+            // Custom Question Support
+            document.getElementById('recovery-question-display').textContent = user.question || 'Güvenlik Sorusu';
+        } else {
+            alert('Bu kullanıcı adı ile kayıtlı bir hesap bulunamadı.');
+        }
+    },
+
+    resetPassword: () => {
+        const answer = document.getElementById('forgot-answer').value.trim().toLowerCase();
+        const newPass = document.getElementById('new-password').value;
+        const user = AuthManager.getUser();
+
+        if (user.answer === answer) {
+            if (!newPass) {
+                alert('Lütfen yeni şifre belirleyin.');
+                return;
+            }
+            user.password = newPass;
+            localStorage.setItem('app_user', JSON.stringify(user));
+            alert('Şifreniz başarıyla değiştirildi. Giriş yapabilirsiniz.');
+            location.reload();
+        } else {
+            alert('Güvenlik cevabı hatalı!');
+        }
+    }
+};
+
+const SettingsManager = {
+    updateProfile: (fullname, securityQ, securityA) => {
+        const user = AuthManager.getUser();
+        if (user) {
+            user.fullname = fullname;
+            user.question = securityQ;
+            if (securityA) user.answer = securityA.toLowerCase();
+
+            localStorage.setItem('app_user', JSON.stringify(user));
+            alert('Profil başarıyla güncellendi.');
+            return true;
+        }
+        return false;
+    },
+
+    changePassword: (oldPass, newPass) => {
+        const user = AuthManager.getUser();
+        if (user) {
+            if (user.password === oldPass) {
+                user.password = newPass;
+                localStorage.setItem('app_user', JSON.stringify(user));
+                alert('Şifreniz değiştirildi.');
+                return true;
+            } else {
+                alert('Eski şifreniz hatalı!');
+                return false;
+            }
+        }
+        return false;
+    },
+
+    changePasswordUI: () => {
+        const oldPass = document.getElementById('old-pass').value;
+        const newPass = document.getElementById('new-pass').value;
+        if (oldPass && newPass) {
+            if (SettingsManager.changePassword(oldPass, newPass)) {
+                // Clear inputs on success
+                document.getElementById('old-pass').value = '';
+                document.getElementById('new-pass').value = '';
+            }
+        } else {
+            alert('Lütfen mevcut ve yeni şifreyi giriniz.');
+        }
+    }
+};
+
+function checkLogin() {
+    // 1. Kullanıcı var mı? (Kurulum yapılmış mı?)
+    const user = AuthManager.getUser();
+    const overlay = document.getElementById('login-overlay');
+
+    if (!user) {
+        // HİÇ KULLANICI YOK -> KURULUM MODU
+        overlay.style.display = 'flex';
+        AuthManager.showScreen('register');
+    } else {
+        // KULLANICI VAR -> GİRİŞ MODU
+        const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+        if (isLoggedIn === 'true') {
+            overlay.style.display = 'none';
+        } else {
+            overlay.style.display = 'flex';
+            AuthManager.showScreen('login');
+        }
+    }
+}
+
+function initApp() {
+    updateDateDisplay();
+    setupNavigation();
+
+    // Varsayılan görünüm
+    handleViewChange('dashboard');
+
+    // Button Listeners (Backup/Restore/FolderGen)
+    document.getElementById('backup-btn').addEventListener('click', () => {
+        StorageManager.exportData();
+    });
+
+    const restoreBtn = document.getElementById('restore-btn');
+    const restoreInput = document.getElementById('restore-input');
+    restoreBtn.addEventListener('click', () => restoreInput.click());
+    restoreInput.addEventListener('change', (e) => handleFileImport(e.target));
+
+    // About Button Listener
+    const aboutBtn = document.getElementById('about-btn');
+    if (aboutBtn) {
+        aboutBtn.addEventListener('click', () => {
+            UIManager.showAboutModal();
+        });
+    }
+
+    // FolderGen Button Removed from Sidebar, keeping logic for future Settings panel
+}
+
+function updateDateDisplay() {
+    const dateElement = document.getElementById('current-date');
+    if (!dateElement) return;
+    const now = new Date();
+    dateElement.textContent = now.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function setupNavigation() {
+    const navButtons = document.querySelectorAll('.nav-item');
+    const headerTitle = document.getElementById('page-title');
+
+    navButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            navButtons.forEach(b => b.classList.remove('active'));
+            const button = e.target.closest('.nav-item');
+            button.classList.add('active');
+
+            const viewName = button.dataset.view;
+            headerTitle.textContent = button.querySelector('span:last-child').textContent;
+
+            handleViewChange(viewName);
+        });
+    });
+
+    // FAB Actions (Hızlı Ekleme Butonu) - Akıllı Davranış
+    const fabBtn = document.getElementById('fab-action');
+    if (fabBtn) {
+        fabBtn.addEventListener('click', () => {
+            const currentView = document.querySelector('.nav-item.active').dataset.view;
+
+            if (currentView === 'notes') {
+                const input = document.getElementById('new-note-input');
+                if (input) input.focus();
+            } else if (currentView === 'tasks') {
+                const input = document.getElementById('new-task-input');
+                if (input) input.focus();
+            } else if (currentView === 'contacts') {
+                const input = document.getElementById('contact-name');
+                if (input) input.focus();
+            } else if (currentView === 'reports') {
+                const input = document.getElementById('rep-title');
+                if (input) input.focus();
+            }
+        });
+    }
+}
+
+function handleViewChange(viewName) {
+    const contentArea = document.getElementById('content-area');
+    const fabBtn = document.getElementById('fab-action');
+
+    // FAB Visibility Control
+    if (fabBtn) {
+        if (viewName === 'dashboard') {
+            fabBtn.style.display = 'none'; // Dashboard'da gizle
+        } else {
+            fabBtn.style.display = 'inline-flex'; // Diğer sayfalarda göster
+        }
+    }
+
+    if (viewName === 'dashboard') {
+        contentArea.innerHTML = getDashboardHTML();
+    } else if (viewName === 'notes') {
+        UIManager.initNotesView();
+    } else if (viewName === 'tasks') {
+        UIManager.initTasksView();
+    } else if (viewName === 'contacts') {
+        UIManager.initContactsView();
+    } else if (viewName === 'reports') {
+        // Auto Backup
+        if (typeof BackupManager !== 'undefined') {
+            BackupManager.autoBackup();
+        }
+        UIManager.initReportsView();
+    } else if (viewName === 'calendar') {
+        if (typeof CalendarManager !== 'undefined') {
+            CalendarManager.initCalendarView();
+        }
+    } else if (viewName === 'settings') {
+        UIManager.initSettingsView();
+    } else if (viewName === 'templates') {
+        UIManager.initTemplatesView();
+    } else {
+        contentArea.innerHTML = `
+            <div class="empty-state-wrapper">
+                <span class="material-icons-round large-icon">construction</span>
+                <h3>${viewName.charAt(0).toUpperCase() + viewName.slice(1)} Modülü Hazırlanıyor</h3>
+            </div>
+        `;
+    }
+}
+
+function getDashboardHTML() {
+    const taskStats = TaskManager.getStats();
+
+    // Görev (Eski Rapor) İstatistikleri (Detaylı)
+    const reports = ReportManager.getReports();
+    const completedReports = reports.filter(r => r.status === 'tamamlandi').length;
+    const activeReports = reports.filter(r => r.status !== 'tamamlandi');
+
+    let greenCount = 0; // Süresi var
+    let yellowCount = 0; // 1 aydan az gecikme
+    let orangeCount = 0; // 1-3 ay gecikme
+    let redCount = 0; // 3 aydan fazla gecikme
+
+    const today = new Date();
+
+    activeReports.forEach(r => {
+        const deadline = new Date(r.deadline);
+        // Compare dates (ignore time)
+        const diffTime = today - deadline;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Pozitifse gecikmiş
+
+        if (diffDays <= 0) {
+            greenCount++; // Henüz süresi var (veya bugün son)
+        } else {
+            // Gecikmiş
+            if (diffDays <= 30) {
+                yellowCount++;
+            } else if (diffDays <= 90) {
+                orangeCount++;
+            } else {
+                redCount++;
+            }
+        }
+    });
+
+    // Bekleyen Görevler (Raporlar) - Yaklaşan Teslim Tarihine Göre
+    const pendingReports = activeReports
+        .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+        .slice(0, 5);
+
+    const reportListHTML = pendingReports.length > 0
+        ? pendingReports.map(r => {
+            const deadline = new Date(r.deadline);
+            const diffTime = deadline - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            let dateColor = 'var(--text-secondary)';
+            let dateText = `${diffDays} gün kaldı`;
+
+            if (diffDays < 0) {
+                dateColor = 'var(--danger)';
+                dateText = `${Math.abs(diffDays)} gün gecikti`;
+            }
+
+            const typeLabels = {
+                'inceleme': 'İnceleme',
+                'sorusturma': 'Soruşturma',
+                'genel-denetim': 'Genel Denetim',
+                'ozel-denetim': 'Özel Denetim',
+                'on-inceleme': 'Ön İnceleme',
+                'on-arastirma': 'Ön Araştırma (8/G)'
+            };
+            const typeText = typeLabels[r.type] || r.type;
+            const startDate = new Date(r.startDate).toLocaleDateString('tr-TR');
+
+            let statusColor = '#4caf50'; // Green
+            if (diffDays <= 0) {
+                statusColor = '#4caf50';
+            } else if (diffDays <= 30) {
+                statusColor = '#ffca28'; // Yellow
+            } else if (diffDays <= 90) {
+                statusColor = '#ff9800'; // Orange
+            } else {
+                statusColor = '#f44336'; // Red
+            }
+
+            // Eğer süresi varsa (diffDays <= 0) bile, diffDays negatif çıkar (Deadline - Today). 
+            // Bizim diffDays mantığımız: Deadline - Today.
+            // Deadline 10'u, Bugün 5'i ise diff = 5 (Gün Kaldı).
+            // Deadline 5'i, Bugün 10'u ise diff = -5 (Gün Gecikti).
+
+            // Düzeltme: Yukarıdaki kodda logic: diffTime = Deadline - Today.
+            // diffDays > 0 => Süre var.
+            // diffDays < 0 => Gecikmiş.
+
+            // Renk Mantığını buna göre revize edelim:
+            if (diffDays >= 0) {
+                statusColor = '#4caf50'; // Süresi var
+            } else {
+                const overdue = Math.abs(diffDays);
+                if (overdue <= 30) statusColor = '#ffca28';
+                else if (overdue <= 90) statusColor = '#ff9800';
+                else statusColor = '#f44336';
+            }
+
+            const statusLabels = {
+                'baslanmadi': { text: 'Başlanmadı', class: 'status-badge status-pending' }, // Class usage might differ in this list context
+                'devam-ediyor': { text: 'Devam Ediyor', class: 'status-badge status-progress' },
+                'evrak-bekleniyor': { text: 'Evrak Bekleniyor', class: 'status-badge status-waiting' },
+                'incelemecide': { text: 'İncelemede', class: 'status-badge status-review' },
+                'tamamlandi': { text: 'Tamamlandı', class: 'status-badge status-done' }
+            };
+            const statusInfo = statusLabels[r.status] || statusLabels['baslanmadi'];
+
+            return `
+            <li style="padding: 0.75rem 0; border-bottom: 1px solid #f1f5f9; display:grid; grid-template-columns: 1.2fr 2.5fr 1.2fr 1.2fr 1.2fr 1.2fr 0.5fr; gap:0.5rem; align-items:center;">
+                <span style="font-size:0.85rem; color:var(--text-secondary); font-weight:600;">${r.code || '-'}</span>
+                <span style="font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${r.title}">${r.title}</span>
+                <span style="font-size:0.85rem; color:var(--text-secondary);">${typeText}</span>
+                <span style="font-size:0.85rem; color:var(--text-secondary);">${startDate}</span>
+                <span style="font-size:0.8rem; padding: 2px 8px; border-radius: 12px; background: #f1f5f9; color: var(--text-secondary); width:fit-content; white-space:nowrap;">${statusInfo.text}</span>
+                <span style="font-size:0.85rem; font-weight:500; color:${diffDays < 0 ? 'var(--danger)' : 'var(--success)'};">${dateText}</span>
+                <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:${statusColor};" title="Süre Durumu"></span>
+            </li>
+            `;
+        }).join('')
+        : '<li class="empty-state">Bekleyen aktif görev bulunmuyor.</li>';
+
+    return `
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <div class="icon-box info"><span class="material-icons-round">folder_open</span></div>
+                <div class="stat-info"><span class="stat-label">Mevcut Görevler</span><span class="stat-value">${activeReports.length}</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="icon-box success"><span class="material-icons-round">check_circle</span></div>
+                <div class="stat-info"><span class="stat-label">Biten Görevler</span><span class="stat-value">${completedReports}</span></div>
+            </div>
+             <div class="stat-card">
+                <div class="icon-box warning"><span class="material-icons-round">priority_high</span></div>
+                <div class="stat-info"><span class="stat-label">Acil Yapılacaklar</span><span class="stat-value">${taskStats.urgent}</span></div>
+            </div>
+        </div>
+
+        <!-- Renkli Durum Çubuğu -->
+        <div class="section-container" style="margin-bottom: 2rem;">
+            <div class="section-header">
+                <h3>Görev Durum Özeti (Süre Bazlı)</h3>
+            </div>
+            <div style="display: flex; height: 20px; width: 100%; border-radius: 10px; overflow: hidden; margin-top:1rem; background:#e2e8f0;">
+                <div style="width: ${(activeReports.length ? (greenCount / activeReports.length * 100) : 0)}%; background: #4caf50;" title="Süresi Var"></div>
+                <div style="width: ${(activeReports.length ? (yellowCount / activeReports.length * 100) : 0)}%; background: #ffca28;" title="1 Ay Geçti"></div>
+                <div style="width: ${(activeReports.length ? (orangeCount / activeReports.length * 100) : 0)}%; background: #ff9800;" title="3 Ay Geçti"></div>
+                <div style="width: ${(activeReports.length ? (redCount / activeReports.length * 100) : 0)}%; background: #f44336;" title="3 Aydan Fazla (Kritik)"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:0.5rem; font-size:0.8rem; color:var(--text-secondary);">
+                <div style="display:flex; align-items:center; gap:4px;"><span style="width:10px; height:10px; background:#4caf50; border-radius:50%;"></span> Süresi Var (${greenCount})</div>
+                <div style="display:flex; align-items:center; gap:4px;"><span style="width:10px; height:10px; background:#ffca28; border-radius:50%;"></span> 1 Ay Geçti (${yellowCount})</div>
+                <div style="display:flex; align-items:center; gap:4px;"><span style="width:10px; height:10px; background:#ff9800; border-radius:50%;"></span> 3 Ay Geçti (${orangeCount})</div>
+                <div style="display:flex; align-items:center; gap:4px;"><span style="width:10px; height:10px; background:#f44336; border-radius:50%;"></span> Kritik (${redCount})</div>
+            </div>
+        </div>
+
+        <div class="section-container" style="margin-bottom: 2rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <h3>Bekleyen Görevler (Özet)</h3>
+                    <button class="btn btn-sm btn-outline" onclick="UIManager.exportToExcel()" title="Excel'e Aktar">
+                        <span class="material-icons-round" style="font-size:1.1rem; margin-right:4px;">table_view</span> Excel
+                    </button>
+                </div>
+            
+            <!-- List Headers -->
+            <div style="padding: 0.5rem 0; border-bottom: 2px solid #e2e8f0; display:grid; grid-template-columns: 1.2fr 2.5fr 1.2fr 1.2fr 1.2fr 1.2fr 0.5fr; gap:0.5rem; font-size:0.8rem; font-weight:600; color:var(--text-secondary);">
+                <span>Rapor No</span>
+                <span>Görev Adı</span>
+                <span>Türü</span>
+                <span>Olur Tarihi</span>
+                <span>Rapor Durumu</span>
+                <span>Süre</span>
+                <span>Durum</span>
+            </div>
+
+            <ul class="task-list-preview" style="list-style:none;">
+                ${reportListHTML}
+            </ul>
+            <div style="margin-top:1rem; text-align:right;">
+                <button class="btn btn-primary" onclick="document.querySelector('[data-view=\\'reports\\']').click()" style="display:inline-flex; width:auto; padding:0.5rem 1rem; font-size:0.8rem;">
+                    Tümünü Gör
+                    <span class="material-icons-round" style="font-size:1rem;">arrow_forward</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+
+// Eksik Scope düzeltmesi: Logic sınıflarını global erişime aç
+window.NoteManager = NoteManager;
+window.ContactsManager = ContactsManager;
+window.TaskManager = TaskManager;
+window.SettingsManager = SettingsManager;
+window.ThemeManager = ThemeManager;
+window.BackupManager = BackupManager;
+window.UIManager = UIManager;
+window.TemplateManager = TemplateManager;
+window.AuthManager = AuthManager;
+window.StorageManager = StorageManager;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Auth Check (Robust)
+    checkLogin();
+
+    // 2. Setup Navigation & UI
+    setupNavigation();
+    updateDateDisplay();
+    ThemeManager.init();
+
+    // 3. Initial View
+    if (isLoggedIn) {
+        // Trigger Dashboard
+        const dashBtn = document.querySelector('[data-view="dashboard"]');
+        if (dashBtn) dashBtn.click();
+    }
+
+    // 5. Auto Backup (Safe Check)
+    if (isLoggedIn && typeof BackupManager !== 'undefined') {
+        setTimeout(() => {
+            BackupManager.createBackup(false).catch(err => console.error("Auto-backup failed", err));
+        }, 3000);
+
+        // Günlük otomatik yedekleme zamanlayıcısını başlat
+        BackupManager.startDailyBackupScheduler();
+    }
+});
+

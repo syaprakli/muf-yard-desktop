@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Müf.Yard Kullanım Kılavuzu</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Merriweather:wght@300;400;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1e40af;
+            --accent: #d97706;
+            --text: #333;
+            --light-bg: #f9fafb;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: #eef2f6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .document-container {
+            max-width: 21cm;
+            /* A4 Width */
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            padding: 2.5cm 2cm;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            font-family: 'Merriweather', serif;
+            color: var(--primary);
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        h2 {
+            font-size: 1.8em;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        h3 {
+            font-size: 1.4em;
+            color: #444;
+        }
+
+        p {
+            margin-bottom: 1em;
+            text-align: justify;
+        }
+
+        ul,
+        ol {
+            margin-bottom: 1em;
+            padding-left: 1.5em;
+        }
+
+        li {
+            margin-bottom: 0.5em;
+        }
+
+        .note-box {
+            background: #eff6ff;
+            border-left: 5px solid var(--primary);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .warning-box {
+            background: #fff7ed;
+            border-left: 5px solid var(--accent);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .img-placeholder {
+            background: #e5e7eb;
+            border: 2px dashed #9ca3af;
+            border-radius: 8px;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .step-num {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            font-weight: bold;
+            font-family: sans-serif;
+            margin-right: 8px;
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .document-container {
+                width: 100%;
+                max-width: none;
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+            }
+
+            .page-break {
+                page-break-after: always;
+            }
+
+            .no-print {
+                display: none;
+            }
+
+            a {
+                text-decoration: none;
+                color: black;
+            }
+        }
+
+        .toc a {
+            display: block;
+            border-bottom: 1px dotted #ccc;
+            padding: 5px 0;
+            text-decoration: none;
+            color: var(--text);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .toc a:hover {
+            color: var(--primary);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="no-print" style="position: fixed; top: 20px; right: 20px; z-index: 999;">
+        <button onclick="window.print()"
+            style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+            Yazdır / PDF Kaydet
+        </button>
+    </div>
+
+    <!-- DOCUMENT START -->
+    <div class="document-container">
+
+        <!-- TITLE PAGE -->
+        <div style="text-align: center; padding-top: 5cm; padding-bottom: 5cm;">
+            <div style="font-size: 6rem; color: var(--primary); margin-bottom: 2rem;">
+                <span class="material-icons-round" style="font-size: inherit;">auto_stories</span>
+            </div>
+            <h1 style="border: none; font-size: 3.5rem; margin-bottom: 1rem;">MÜF.YARD</h1>
+            <p style="font-size: 1.5rem; color: #555; text-align: center;">Kullanım Kılavuzu</p>
+            <p style="margin-top: 4rem; font-weight: bold;">Versiyon 3.0</p>
+            <p>2024</p>
+        </div>
+
+        <div class="page-break"></div>
+
+        <!-- TOC -->
+        <h2>İçindekiler</h2>
+        <div class="toc">
+            <a href="#giris"><span>1. Giriş ve Hakkında</span> <span>3</span></a>
+            <a href="#kurulum"><span>2. Kurulum ve Başlangıç</span> <span>4</span></a>
+            <a href="#arayuz"><span>3. Arayüz Tanıtımı</span> <span>5</span></a>
+            <a href="#gorevler"><span>4. Görev ve Rapor Yönetimi</span> <span>6</span></a>
+            <a href="#klasor"><span>5. Akıllı Klasör Sistemi (MufYard)</span> <span>8</span></a>
+            <a href="#diger"><span>6. Diğer Özellikler</span> <span>10</span></a>
+            <a href="#kurtarma"><span>7. Sorun Giderme ve İpuçları</span> <span>12</span></a>
+        </div>
+
+        <div class="page-break"></div>
+
+        <!-- CHAPTER 1: INTRO -->
+        <h2 id="giris">1. Giriş ve Hakkında</h2>
+        <p><strong>Müf.Yard</strong> (Dijital Müfettiş Yardımcısı), teftiş ve denetim süreçlerini dijitalleştirmek,
+            düzenlemek ve hızlandırmak amacıyla geliştirilmiş, kişisel bir üretkenlik yazılımıdır.</p>
+
+        <h3>Temel Özellikler</h3>
+        <ul>
+            <li><strong>Tam Taşınabilirlik:</strong> Kurulum gerektirmez. USB bellekten veya herhangi bir klasörden
+                çalışır.</li>
+            <li><strong>Güvenlik:</strong> Veriler bulutta değil, bilgisayarınızda yerel ve şifreli olarak saklanır.
+            </li>
+            <li><strong>Otomasyon:</strong> Rapor klasörlerini otomatik oluşturur, tarihleri takip eder ve sizi uyarır.
+            </li>
+        </ul>
+
+        <div class="note-box">
+            <strong>Bilgi:</strong> Program internet bağlantısı olmadan da tam işlevsel olarak çalışabilir. Sadece
+            mevzuat linkleri ve güncellemeler için internet gereklidir.
+        </div>
+
+        <!-- CHAPTER 2: INSTALLATION -->
+        <h2 id="kurulum">2. Kurulum ve Başlangıç</h2>
+        <p>Program "Portable" (Taşınabilir) mimaride tasarlandığı için standart bir kurulum sihirbazına sahip değildir.
+        </p>
+
+        <h3>Adım 1: İndirme ve Konumlandırma</h3>
+        <p>İndirdiğiniz <code>Setup.exe</code> veya program klasörünü bilgisayarınızda kalıcı olmasını istediğiniz yere
+            (Örn: <code>D:\Programlar\Mufettis</code> veya doğrudan USB belleğinize) kopyalayın.</p>
+
+        <h3>Adım 2: İlk Çalıştırma</h3>
+        <p>Uygulama simgesine çift tıklayın. İlk açılışta sizden bir profil oluşturmanız istenecektir:</p>
+        <ol>
+            <li><strong>Ad Soyad:</strong> Raporlarda görünecek isminiz.</li>
+            <li><strong>Kullanıcı Adı:</strong> Giriş yaparken kullanacağınız isim.</li>
+            <li><strong>Şifre:</strong> Verilerinizi koruyacak anahtar.</li>
+            <li><strong>Güvenlik Sorusu:</strong> Şifrenizi unutursanız sıfırlamak için gereklidir.</li>
+        </ol>
+
+        <div class="warning-box">
+            <strong>Önemli:</strong> Güvenlik sorunuzu ve cevabını not ediniz. Verileriniz şifreli olduğu için,
+            şifrenizi unutursanız verilerinize erişmenin tek yolu budur.
+        </div>
+
+        <div class="page-break"></div>
+
+        <!-- CHAPTER 3: INTERFACE -->
+        <h2 id="arayuz">3. Arayüz Tanıtımı</h2>
+        <p>Uygulama, sol tarafta bir menü çubuğu ve sağ geniş alanda içerik panellerinden oluşur.</p>
+
+        <div class="img-placeholder">[Ekran Görüntüsü: Dashboard / Ana Ekran]</div>
+
+        <h3>Genel Bakış (Dashboard)</h3>
+        <p>Programın ana ekranıdır. Burada:</p>
+        <ul>
+            <li><strong>İstatistik Kartları:</strong> Acil görev sayısı, aktif denetimler ve tamamlanan işlerin özeti.
+            </li>
+            <li><strong>Hızlı Menü:</strong> En sık kullanılan işlemlere kısayollar.</li>
+            <li><strong>Uyarılar:</strong> Teslim tarihi yaklaşan veya geçen raporlar burada kırmızı renkle listelenir.
+            </li>
+        </ul>
+
+        <h3>Karanlık Mod</h3>
+        <p>Geceleri göz yorgunluğunu azaltmak için sol menüdeki "Ay" simgesine tıklayarak arayüzü karanlık moda
+            alabilirsiniz.</p>
+
+        <!-- CHAPTER 4: TASKS -->
+        <h2 id="gorevler">4. Görev ve Rapor Yönetimi</h2>
+        <p>Programın kalbi burasıdır. Tüm denetim faaliyetlerinizi buradan yönetirsiniz.</p>
+
+        <h3>Yeni Görev Ekleme</h3>
+        <p>
+            <span class="step-num">1</span> "Görevler" menüsüne tıklayın.<br>
+            <span class="step-num">2</span> Sağ üstteki "+ Yeni Rapor" butonuna basın.<br>
+            <span class="step-num">3</span> Açılan formda bilgileri doldurun:
+        </p>
+        <ul>
+            <li><strong>Tür:</strong> Denetim, Soruşturma, İnceleme vb.</li>
+            <li><strong>Başlık:</strong> Denetlenen birimin adı (Örn: Bolu GSİM).</li>
+            <li><strong>Tarihler:</strong> Başlangıç tarihi ve verilmesi gereken süre. Bitiş tarihi otomatik hesaplanır.
+            </li>
+        </ul>
+
+        <h3>İş Adımları (Checklist)</h3>
+        <p>Oluşturduğunuz her görevin detayına girdiğinizde bir yapılacaklar listesi görürsünüz. Buraya:</p>
+        <ul>
+            <li>"Onay alındı"</li>
+            <li>"Belgeler istendi"</li>
+            <li>"Rapor yazıldı"</li>
+        </ul>
+        <p>gibi adımlar ekleyebilir ve tamamladıkça işaretleyebilirsiniz.</p>
+
+        <div class="page-break"></div>
+
+        <!-- CHAPTER 5: FOLDER SYSTEM -->
+        <h2 id="klasor">5. Akıllı Klasör Sistemi (MufYard)</h2>
+        <p>Müf.Yard, dosyalarınızı düzenli tutmak için <strong>Otomatik Klasörleme</strong> teknolojisini kullanır.</p>
+
+        <h3>MufYard Klasörü Nedir?</h3>
+        <p>Program, çalıştığı dizin içerisinde <code>MufYard</code> adında bir ana klasör oluşturur. Tüm veritabanı ve
+            rapor dosyalarınız burada saklanır. Bu sayede:</p>
+        <ul>
+            <li>Programı taşısanız bile verileriniz onunla gelir.</li>
+            <li>C: sürücüsü doluysa veya yasaklıysa, D: sürücüsünde çalışabilirsiniz.</li>
+        </ul>
+
+        <h3>Klasör Yapısı</h3>
+        <p>Her yeni rapor için şu hiyerarşide bir klasör otomatik oluşturulur:</p>
+        <pre style="background:#f1f1f1; padding:15px; border-radius:5px; font-family:consolas;">
+[Program Yeri]
+ └── MufYard
+      └── Raporlar
+           └── 2024 (Yıl)
+                └── Genel Denetim (Tür)
+                     └── 1 - Boluspor Denetimi
+        </pre>
+
+        <h3>Dosya Yükleme</h3>
+        <p>"Dosyalarım" menüsüne girdiğinizde, aktif görevlerinizin klasörleri en üstte listelenir. Klasöre girip
+            dosyalarınızı sürükle-bırak yöntemiyle yükleyebilirsiniz. Bu dosyalar fiziksel olarak yukarıdaki klasör
+            yolunda saklanır.</p>
+
+        <!-- CHAPTER 6: OTHER FEATURES -->
+        <h2 id="diger">6. Diğer Özellikler</h2>
+
+        <h3>Rehber</h3>
+        <p>Kişi ve Kurum rehberini kullanarak önemli iletişim numaralarını kaydedebilirsiniz. Ayrıca Excel'den toplu
+            kişi aktarımı yapabilirsiniz.</p>
+
+        <h3>Takvim</h3>
+        <p>Takvim modülü, raporlarınızın başlangıç ve bitiş tarihlerini görsel olarak sunar. Çakışan görevleri
+            planlamanızı kolaylaştırır.</p>
+
+        <h3>Mevzuat Erişimi</h3>
+        <p>Hızlı Erişim menüsü üzerinden "Mevzuat.gov.tr", "Resmi Gazete" ve kurum içi portallara programdan çıkmadan
+            erişebilirsiniz.</p>
+
+        <div class="page-break"></div>
+
+        <!-- CHAPTER 7: TROUBLESHOOTING -->
+        <h2 id="kurtarma">7. Sorun Giderme ve İpuçları</h2>
+
+        <h3>Yedekleme</h3>
+        <p>Verilerinizin kaybolmaması için haftalık yedek almanız önerilir:</p>
+        <p><span class="step-num">1</span> Ayarlar veya Profil menüsündeki "Yedekle" butonuna basın.<br>
+            <span class="step-num">2</span> İndirilen <code>.json</code> dosyasını güvenli bir yerde (Örn: Bulut
+            depolama) saklayın.
+        </p>
+
+        <h3>Şifre Sıfırlama</h3>
+        <p>Şifrenizi unutursanız giriş ekranındaki "Şifremi Unuttum" bağlantısını kullanın. Kurulumda belirlediğiniz
+            güvenlik sorusunu cevaplayarak yeni şifre oluşturabilirsiniz.</p>
+
+        <hr style="margin: 3em 0; border: 0; border-top: 1px solid #ddd;">
+        <p style="text-align: center; font-size: 0.9em; color: #777;">
+            Müf.Yard - Dijital Müfettiş Yardımcısı<br>
+            Tüm hakları saklıdır © 2024
+        </p>
+
+    </div>
+
+</body>
+
+</html>
