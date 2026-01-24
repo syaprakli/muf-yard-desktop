@@ -1,0 +1,98 @@
+npm warn Unknown project config "electron_mirror". This will stop working in the next major version of npm.
+
+> muf-yard-desktop@1.0.0 build:win
+> electron-builder --win --x64
+
+  • electron-builder  version=24.13.3 os=10.0.19045
+  • loaded configuration  file=package.json ("build" field)
+  • packaging       platform=win32 arch=x64 electron=39.2.7 appOutDir=dist\win-unpacked
+  • building        target=nsis file=dist\Müf.Yard Setup 1.0.0.exe archs=x64 oneClick=false perMachine=false
+  ⨯ C:\Users\sefa\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1\Bin\makensis.exe process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1
+Output:
+Command line defined: "APP_ID=com.mufyard.app"
+Command line defined: "APP_GUID=5a533453-7c47-5872-9d22-3a368728bbde"
+Command line defined: "UNINSTALL_APP_KEY=5a533453-7c47-5872-9d22-3a368728bbde"
+Command line defined: "PRODUCT_NAME=M�f.Yard"
+Command line defined: "PRODUCT_FILENAME=M�f.Yard"
+Command line defined: "APP_FILENAME=muf-yard-desktop"
+Command line defined: "APP_DESCRIPTION=Dijital M�fetti� Yard�mc�s�"
+Command line defined: "VERSION=1.0.0"
+Command line defined: "PROJECT_DIR=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi"
+Command line defined: "BUILD_RESOURCES_DIR=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi\build"
+Command line defined: "APP_PACKAGE_NAME=muf-yard-desktop"
+Command line defined: "MUI_ICON=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi\icon.ico"
+Command line defined: "MUI_UNICON=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi\icon.ico"
+Command line defined: "APP_64=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi\dist\muf-yard-desktop-1.0.0-x64.nsis.7z"
+Command line defined: "APP_64_NAME=muf-yard-desktop-1.0.0-x64.nsis.7z"
+Command line defined: "APP_64_HASH=170DB7D16FD6F7B553C2F9E06F86CEBB4CAD1CFA1BACF610D225D2F6B981ED8EE0CF4015B1874B493699B336327724BEBB7ACC2837CE885B5C4175719613D1DA"
+Command line defined: "APP_64_UNPACKED_SIZE=519308"
+Command line defined: "COMPANY_NAME=Sefa YAPRAKLI"
+Command line defined: "APP_PRODUCT_FILENAME=M�f.Yard"
+Command line defined: "APP_INSTALLER_STORE_FILE=muf-yard-desktop-updater\installer.exe"
+Command line defined: "COMPRESSION_METHOD=7z"
+Command line defined: "MULTIUSER_INSTALLMODE_ALLOW_ELEVATION"
+Command line defined: "INSTALL_MODE_PER_ALL_USERS_REQUIRED"
+Command line defined: "allowToChangeInstallationDirectory"
+Command line defined: "SHORTCUT_NAME=M�f.Yard"
+Command line defined: "UNINSTALL_DISPLAY_NAME=M�f.Yard 1.0.0"
+Command line defined: "MUI_WELCOMEFINISHPAGE_BITMAP=${NSISDIR}\Contrib\Graphics\Wizard\nsis3-metro.bmp"
+Command line defined: "MUI_UNWELCOMEFINISHPAGE_BITMAP=${NSISDIR}\Contrib\Graphics\Wizard\nsis3-metro.bmp"
+Command line defined: "ESTIMATED_SIZE=519308"
+Command line defined: "COMPRESS=auto"
+Command line defined: "BUILD_UNINSTALLER"
+Command line defined: "UNINSTALLER_OUT_FILE=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi\dist\__uninstaller-nsis-muf-yard-desktop.exe"
+Processing config: C:\Users\sefa\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1\nsisconf.nsh
+Processing script file: "<stdin>" (UTF8)
+
+Error output:
+Error: Function named ".onInit" already exists.
+Error in script "<stdin>" on line 121 -- aborting creation process
+  failedTask=build stackTrace=Error: C:\Users\sefa\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1\Bin\makensis.exe process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1
+Output:
+Command line defined: "APP_ID=com.mufyard.app"
+Command line defined: "APP_GUID=5a533453-7c47-5872-9d22-3a368728bbde"
+Command line defined: "UNINSTALL_APP_KEY=5a533453-7c47-5872-9d22-3a368728bbde"
+Command line defined: "PRODUCT_NAME=M�f.Yard"
+Command line defined: "PRODUCT_FILENAME=M�f.Yard"
+Command line defined: "APP_FILENAME=muf-yard-desktop"
+Command line defined: "APP_DESCRIPTION=Dijital M�fetti� Yard�mc�s�"
+Command line defined: "VERSION=1.0.0"
+Command line defined: "PROJECT_DIR=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi"
+Command line defined: "BUILD_RESOURCES_DIR=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi\build"
+Command line defined: "APP_PACKAGE_NAME=muf-yard-desktop"
+Command line defined: "MUI_ICON=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi\icon.ico"
+Command line defined: "MUI_UNICON=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi\icon.ico"
+Command line defined: "APP_64=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi\dist\muf-yard-desktop-1.0.0-x64.nsis.7z"
+Command line defined: "APP_64_NAME=muf-yard-desktop-1.0.0-x64.nsis.7z"
+Command line defined: "APP_64_HASH=170DB7D16FD6F7B553C2F9E06F86CEBB4CAD1CFA1BACF610D225D2F6B981ED8EE0CF4015B1874B493699B336327724BEBB7ACC2837CE885B5C4175719613D1DA"
+Command line defined: "APP_64_UNPACKED_SIZE=519308"
+Command line defined: "COMPANY_NAME=Sefa YAPRAKLI"
+Command line defined: "APP_PRODUCT_FILENAME=M�f.Yard"
+Command line defined: "APP_INSTALLER_STORE_FILE=muf-yard-desktop-updater\installer.exe"
+Command line defined: "COMPRESSION_METHOD=7z"
+Command line defined: "MULTIUSER_INSTALLMODE_ALLOW_ELEVATION"
+Command line defined: "INSTALL_MODE_PER_ALL_USERS_REQUIRED"
+Command line defined: "allowToChangeInstallationDirectory"
+Command line defined: "SHORTCUT_NAME=M�f.Yard"
+Command line defined: "UNINSTALL_DISPLAY_NAME=M�f.Yard 1.0.0"
+Command line defined: "MUI_WELCOMEFINISHPAGE_BITMAP=${NSISDIR}\Contrib\Graphics\Wizard\nsis3-metro.bmp"
+Command line defined: "MUI_UNWELCOMEFINISHPAGE_BITMAP=${NSISDIR}\Contrib\Graphics\Wizard\nsis3-metro.bmp"
+Command line defined: "ESTIMATED_SIZE=519308"
+Command line defined: "COMPRESS=auto"
+Command line defined: "BUILD_UNINSTALLER"
+Command line defined: "UNINSTALLER_OUT_FILE=C:\Users\sefa\.gemini\antigravity\playground\m�fettis_programi\dist\__uninstaller-nsis-muf-yard-desktop.exe"
+Processing config: C:\Users\sefa\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1\nsisconf.nsh
+Processing script file: "<stdin>" (UTF8)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Error output:
+Error: Function named ".onInit" already exists.
+Error in script "<stdin>" on line 121 -- aborting creation process
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    at ChildProcess.<anonymous> (C:\Users\sefa\.gemini\antigravity\playground\müfettis_programi\node_modules\builder-util\src\util.ts:252:14)
+    at Object.onceWrapper (node:events:623:26)
+    at ChildProcess.emit (node:events:508:28)
+    at ChildProcess.cp.emit (C:\Users\sefa\.gemini\antigravity\playground\müfettis_programi\node_modules\cross-spawn\lib\enoent.js:34:29)
+    at maybeClose (node:internal/child_process:1085:16)
+    at Process.ChildProcess._handle.onexit (node:internal/child_process:304:5)

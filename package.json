@@ -1,0 +1,73 @@
+{
+  "name": "muf-yard-desktop",
+  "version": "1.0.0",
+  "description": "Dijital Müfettiş Yardımcısı",
+  "author": "Sefa YAPRAKLI",
+  "main": "main.js",
+  "scripts": {
+    "start": "set ELECTRON_RUN_AS_NODE=&& electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --x64"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.mufyard.app",
+    "productName": "Müf.Yard",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "syaprakli",
+        "repo": "muf-yard-desktop"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": true
+    },
+    "files": [
+      "**/*",
+      "!node_modules/**/*",
+      "!dist/**/*",
+      "!.git/**/*",
+      "!*.bat"
+    ],
+    "extraResources": [
+      "icon.ico",
+      "3.png",
+      "Sablonlar/**/*",
+      "Telefon_Rehberi/**/*"
+    ]
+  }
+}

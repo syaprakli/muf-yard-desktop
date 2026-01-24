@@ -1,0 +1,31 @@
+{
+  "reports": [
+    {
+      "id": 1765980230218,
+      "code": "S.Y.64/2025-1",
+      "title": "van",
+      "type": "genel-denetim",
+      "startDate": "2025-12-17",
+      "duration": 32,
+      "deadline": "2026-01-18",
+      "status": "baslanmadi",
+      "priority": "normal",
+      "checklist": [],
+      "description": "",
+      "createdAt": "2025-12-17T14:03:50.218Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": 1766000466872,
+      "content": "Başkanla görüşülecek",
+      "priority": "normal",
+      "completed": true,
+      "reportId": null,
+      "reportTitle": null,
+      "createdAt": "2025-12-17T19:41:06.872Z"
+    }
+  ],
+  "contacts": [],
+  "notes": []
+}

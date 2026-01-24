@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Müf.Yard Kullanım Kılavuzu</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1e40af;
+            /* Deep Blue */
+            --accent: #ef4444;
+            /* Red */
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f3f4f6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #e5e7eb;
+            color: var(--text);
+        }
+
+        /* A4 Page Layout */
+        .page {
+            width: 21cm;
+            height: 29.7cm;
+            background: white;
+            margin: 2rem auto;
+            position: relative;
+            overflow: hidden;
+            border-radius: 0;
+            /* Sharp corners like a document */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+        }
+
+        @media print {
+            body {
+                background: white;
+                margin: 0;
+            }
+
+            .page {
+                margin: 0;
+                width: 100%;
+                height: 100vh;
+                box-shadow: none;
+                page-break-after: always;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        /* --- PAGE 1: COVER --- */
+        .cover-border {
+            position: absolute;
+            top: 2cm;
+            bottom: 2cm;
+            left: 1.5cm;
+            right: 1.5cm;
+            border-left: 8px solid var(--primary);
+            border-right: 8px solid var(--accent);
+            border-bottom: 8px solid var(--primary);
+            pointer-events: none;
+        }
+
+        .cover-top-line {
+            position: absolute;
+            top: 2cm;
+            left: 1.5cm;
+            right: 1.5cm;
+            height: 8px;
+            background: var(--accent);
+        }
+
+        .cover-content {
+            margin-top: 5cm;
+            text-align: center;
+            padding: 0 3cm;
+        }
+
+        .cover-title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1.1;
+            margin-bottom: 0.5rem;
+        }
+
+        .cover-subtitle {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .cover-illustration {
+            margin: 4rem auto;
+            width: 300px;
+            height: 300px;
+            background: #e0f2fe;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cover-footer {
+            margin-top: auto;
+            margin-bottom: 4cm;
+            text-align: center;
+        }
+
+        /* --- PAGE 2: INSTALLATION FLOW --- */
+        .page-header {
+            text-align: center;
+            padding-top: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+        }
+
+        .page-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            font-weight: 400;
+            margin-top: 0.5rem;
+        }
+
+        .flow-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 0 2rem;
+            margin-top: 2rem;
+            position: relative;
+        }
+
+        .flow-step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            padding: 0 10px;
+        }
+
+        .step-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: white;
+            border: 4px solid #3b82f6;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #3b82f6;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);
+        }
+
+        .step-icon {
+            font-size: 2.5rem;
+            color: #3b82f6;
+        }
+
+        .step-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        .step-desc {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            line-height: 1.4;
+        }
+
+        .flow-arrow {
+            position: absolute;
+            top: 50px;
+            right: -50%;
+            width: 100%;
+            height: 4px;
+            background: #cbd5e1;
+            z-index: 1;
+        }
+
+        .flow-step:last-child .flow-arrow {
+            display: none;
+        }
+
+        /* --- PAGE 3: FEATURES GRID --- */
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            padding: 0 3rem;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #f3f4f6;
+        }
+
+        .card-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            flex-shrink: 0;
+        }
+
+        /* --- PAGE 4: FOLDER SYSTEM (Diagram) --- */
+        .folder-diagram {
+            background: #fffbeb;
+            border: 2px dashed #f59e0b;
+            border-radius: 16px;
+            margin: 2rem 4rem;
+            padding: 2rem;
+            font-family: 'Consolas', monospace;
+            color: #92400e;
+        }
+
+        /* --- PAGE 5: TIPS & FAQ --- */
+        .tips-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            padding: 0 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .tip-card {
+            background: #eff6ff;
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            border-top: 4px solid #3b82f6;
+        }
+
+        .faq-section {
+            background: #f8fafc;
+            border-radius: 16px;
+            margin: 0 2rem;
+            padding: 2rem;
+        }
+
+        .faq-item {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .q-mark {
+            width: 32px;
+            height: 32px;
+            background: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        /* Helpers */
+        .bg-blue {
+            background: #3b82f6;
+        }
+
+        .bg-teal {
+            background: #14b8a6;
+        }
+
+        .bg-orange {
+            background: #f97316;
+        }
+
+        .bg-purple {
+            background: #8b5cf6;
+        }
+
+        .bg-red {
+            background: #ef4444;
+        }
+
+        .bg-indigo {
+            background: #6366f1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="no-print"
+        style="position: fixed; top: 20px; right: 20px; z-index: 1000; background: white; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); border-radius: 12px; max-width: 300px;">
+        <h3 style="margin-bottom: 10px; color: var(--primary);">Hazır!</h3>
+        <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Referans aldığınız görsellere uygun olarak
+            yeniden tasarlandı.</p>
+        <button onclick="window.print()"
+            style="background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%;">
+            PDF Olarak Kaydet
+        </button>
+    </div>
+
+    <!-- 1. KAPAK SAYFASI -->
+    <div class="page">
+        <div class="cover-top-line"></div>
+        <div class="cover-border"></div>
+
+        <div class="cover-content">
+            <h1 class="cover-title">CASEMASTER<br>Kullanım Kılavuzu</h1>
+            <p class="cover-subtitle">Dijital Müfettiş Yardımcısı v1.0</p>
+
+            <div class="cover-illustration">
+                <!-- Laptop Icon Illustration -->
+                <span class="material-icons-round" style="font-size: 180px; color: #0284c7;">laptop_mac</span>
+            </div>
+
+            <div
+                style="background: #eff6ff; padding: 20px; border-radius: 12px; display: inline-block; margin-top: 20px;">
+                <h3 style="color: var(--primary); margin-bottom: 5px;">Sürüm Numarası: v3.1</h3>
+                <p style="color: #64748b;">Yazar: Sefa YAPRAKLI - Müfettiş</p>
+            </div>
+        </div>
+
+        <div class="cover-footer">
+            <div
+                style="height: 10px; background: var(--accuracy); width: 100px; margin: 0 auto 20px auto; border-radius: 5px;">
+            </div>
+            <h2 style="color: var(--primary); font-size: 1.5rem;">2024</h2>
+        </div>
+    </div>
+
+    <!-- 2. KURULUM VE BAŞLANGIÇ (Akış Şeması) -->
+    <div class="page">
+        <div class="page-header">
+            <h1 class="page-title">MÜF.YARD</h1>
+            <p class="page-subtitle">İlk Kurulum ve Başlangıç Rehberi</p>
+        </div>
+
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+            <div class="flow-container">
+                <!-- Step 1 -->
+                <div class="flow-step">
+                    <div class="step-circle">
+                        <span class="material-icons-round step-icon">download</span>
+                    </div>
+                    <div class="flow-arrow"></div>
+                    <h3 class="step-title">1. İndirin</h3>
+                    <p class="step-desc">En güncel Setup.exe dosyasını bilgisayarınıza indirin.</p>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="flow-step">
+                    <div class="step-circle">
+                        <span class="material-icons-round step-icon">settings</span>
+                    </div>
+                    <div class="flow-arrow"></div>
+                    <h3 class="step-title">2. Kurun</h3>
+                    <p class="step-desc">İndirilen dosyayı çalıştırın. Kurulum otomatiktir.</p>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="flow-step">
+                    <div class="step-circle">
+                        <span class="material-icons-round step-icon">person</span>
+                    </div>
+                    <div class="flow-arrow"></div>
+                    <h3 class="step-title">3. Profilin</h3>
+                    <p class="step-desc">İlk açılışta Ad, Soyad ve Unvan bilgilerinizi girin.</p>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="flow-step">
+                    <div class="step-circle">
+                        <span class="material-icons-round step-icon">verified_user</span>
+                    </div>
+                    <h3 class="step-title">4. Başlayın</h3>
+                    <p class="step-desc">Güvenlik sorunuzu belirleyin ve kullanıma başlayın.</p>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 4rem;">
+                <div
+                    style="background: #ecfdf5; padding: 2rem; border-radius: 16px; display: inline-block; border: 1px solid #10b981; max-width: 600px;">
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                        <span class="material-icons-round" style="color: #10b981; font-size: 2rem;">check_circle</span>
+                        <h3 style="color: #065f46; font-size: 1.2rem; text-align: left;">Artık Hazırsınız!</h3>
+                    </div>
+                    <p style="color: #047857; text-align: left;">Müf.Yard kurulum gerektirmez. İsterseniz USB belleğe
+                        atıp yanınızda taşıyabilirsiniz.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. ANA ÖZELLİKLER (Renkli Grid) -->
+    <div class="page">
+        <div class="page-header">
+            <h1 class="page-title">Ana Özellikler</h1>
+            <p class="page-subtitle">İhtiyacınız olan her şey tek bir yerde</p>
+        </div>
+
+        <div class="grid-container" style="flex:1; align-content: start;">
+            <!-- Card 1 -->
+            <div class="feature-card">
+                <div class="card-icon bg-blue">
+                    <span class="material-icons-round">dashboard</span>
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; margin-bottom: 5px;">Genel Bakış</h3>
+                    <p style="font-size: 0.9rem; color: #6b7280;">Tüm işlerinizi, acil durumları ve istatistikleri tek
+                        ekranda görün.</p>
+                </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="feature-card">
+                <div class="card-icon bg-orange">
+                    <span class="material-icons-round">folder_special</span>
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; margin-bottom: 5px;">Raporlar</h3>
+                    <p style="font-size: 0.9rem; color: #6b7280;">Denetim raporlarınızı sınıflandırın, takip edin ve
+                        yönetin.</p>
+                </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="feature-card">
+                <div class="card-icon bg-teal">
+                    <span class="material-icons-round">checklist</span>
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; margin-bottom: 5px;">Yapılacaklar</h3>
+                    <p style="font-size: 0.9rem; color: #6b7280;">Her rapor için özel iş adımları oluşturun ve
+                        ilerlemeyi izleyin.</p>
+                </div>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="feature-card">
+                <div class="card-icon bg-purple">
+                    <span class="material-icons-round">calendar_month</span>
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; margin-bottom: 5px;">Takvim</h3>
+                    <p style="font-size: 0.9rem; color: #6b7280;">Önemli tarihleri, teslim sürelerini takvim üzerinde
+                        görselleştirin.</p>
+                </div>
+            </div>
+
+            <!-- Card 5 -->
+            <div class="feature-card">
+                <div class="card-icon bg-red">
+                    <span class="material-icons-round">contacts</span>
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; margin-bottom: 5px;">Rehber</h3>
+                    <p style="font-size: 0.9rem; color: #6b7280;">Kişi ve kurum iletişim bilgilerine hızlıca erişin.</p>
+                </div>
+            </div>
+
+            <!-- Card 6 -->
+            <div class="feature-card">
+                <div class="card-icon bg-indigo">
+                    <span class="material-icons-round">description</span>
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; margin-bottom: 5px;">Şablonlar</h3>
+                    <p style="font-size: 0.9rem; color: #6b7280;">Hazır tutanak ve rapor şablonlarını kullanın.</p>
+                </div>
+            </div>
+
+            <!-- Card 7 - NEW -->
+            <div class="feature-card" style="border: 2px solid #f59e0b;">
+                <div class="card-icon bg-orange">
+                    <span class="material-icons-round">create_new_folder</span>
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; margin-bottom: 5px; color:#b45309;">Akıllı Klasör (Yeni)</h3>
+                    <p style="font-size: 0.9rem; color: #6b7280;">Otomatik oluşturulan "MufYard" klasör yapısı ile
+                        verileriniz hiç kaybolmaz.</p>
+                </div>
+            </div>
+
+            <!-- Card 8 -->
+            <div class="feature-card">
+                <div class="card-icon bg-blue">
+                    <span class="material-icons-round">bolt</span>
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; margin-bottom: 5px;">Hızlı Erişim</h3>
+                    <p style="font-size: 0.9rem; color: #6b7280;">Mevzuat ve E-Devlet kapılarına program içinden
+                        çıkmadan ulaşın.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. AKILLI KLASÖR SİSTEMİ (Yeni) -->
+    <div class="page">
+        <div class="page-header">
+            <h1 class="page-title">Akıllı Klasör Sistemi</h1>
+            <p class="page-subtitle">Otomatik Düzen, Maksimum Verim</p>
+        </div>
+
+        <div style="padding: 2rem;">
+            <div style="display: flex; gap: 2rem; align-items: center; justify-content: center; margin-bottom: 3rem;">
+                <div style="text-align: center;">
+                    <span class="material-icons-round" style="font-size: 4rem; color: #64748b;">folder_open</span>
+                    <p>Eski Yöntem</p>
+                </div>
+                <span class="material-icons-round" style="font-size: 3rem; color: #3b82f6;">arrow_forward</span>
+                <div style="text-align: center;">
+                    <span class="material-icons-round" style="font-size: 5rem; color: #f59e0b;">folder_special</span>
+                    <p style="color: #b45309; font-weight: bold;">Müf.Yard Sistemi</p>
+                </div>
+            </div>
+
+            <h3 style="text-align: center; margin-bottom: 1rem; color: var(--primary);">Nasıl Çalışır?</h3>
+            <p style="text-align: center; max-width: 600px; margin: 0 auto 2rem auto;">Yeni bir görev oluşturduğunuzda,
+                program bilgisayarınızda fiziksel klasörleri anında hazırlar.</p>
+
+            <div class="folder-diagram">
+                <span style="color:#000">📂 [Programın Bulunduğu Yer]</span><br>
+                &nbsp;┗ 📂 <strong>MufYard</strong> <span style="color:#d97706">(Ana Veri Klasörü)</span><br>
+                &nbsp;&nbsp;&nbsp;┗ 📂 Raporlar<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┗ 📂 2024<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┗ 📂 Genel Denetim<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┗ <span style="background: yellow;">📂 1 - GSB
+                    Denetimi</span>
+            </div>
+
+            <div class="feature-card" style="margin-top: 2rem;">
+                <div class="card-icon bg-blue">
+                    <span class="material-icons-round">upload_file</span>
+                </div>
+                <div>
+                    <h3 style="font-size: 1.2rem; margin-bottom: 5px;">Doğrudan Yükleme</h3>
+                    <p>Dosyalarım sayfasına gidin, ilgili görevin klasörüne tıklayın ve belgelerinizi sürükleyip
+                        bırakın. Hepsi doğru yerde!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. İPUÇLARI VE DESTEK -->
+    <div class="page">
+        <div class="page-header">
+            <h1 class="page-title">Faydalı İpuçları</h1>
+            <p class="page-subtitle">Programı daha etkili kullanın</p>
+        </div>
+
+        <div class="tips-container">
+            <div class="tip-card">
+                <span class="material-icons-round"
+                    style="font-size: 2.5rem; color: #f59e0b; margin-bottom: 1rem;">lightbulb</span>
+                <h4>Yedek Alın</h4>
+                <p style="font-size: 0.8rem; margin-top: 0.5rem; color: #64748b;">Haftalık olarak "Yedek Al" butonunu
+                    kullanın.</p>
+            </div>
+            <div class="tip-card">
+                <span class="material-icons-round"
+                    style="font-size: 2.5rem; color: #3b82f6; margin-bottom: 1rem;">dark_mode</span>
+                <h4>Karanlık Mod</h4>
+                <p style="font-size: 0.8rem; margin-top: 0.5rem; color: #64748b;">Geceleri göz yorgunluğunu azaltmak
+                    için temayı değiştirin.</p>
+            </div>
+            <div class="tip-card">
+                <span class="material-icons-round"
+                    style="font-size: 2.5rem; color: #ef4444; margin-bottom: 1rem;">picture_as_pdf</span>
+                <h4>Hızlı Çıktı</h4>
+                <p style="font-size: 0.8rem; margin-top: 0.5rem; color: #64748b;">Tüm dokümanları kolayca PDF'e
+                    çevirebilirsiniz.</p>
+            </div>
+            <div class="tip-card">
+                <span class="material-icons-round"
+                    style="font-size: 2.5rem; color: #10b981; margin-bottom: 1rem;">update</span>
+                <h4>Güncel Kalın</h4>
+                <p style="font-size: 0.8rem; margin-top: 0.5rem; color: #64748b;">Hakkında kısmından güncellemeleri
+                    kontrol edin.</p>
+            </div>
+        </div>
+
+        <div class="page-header" style="margin-top: 2rem; margin-bottom: 1rem; padding-top: 0;">
+            <h2 style="font-size: 1.8rem;">Sıkça Sorulan Sorular</h2>
+        </div>
+
+        <div class="faq-section">
+            <div class="faq-item">
+                <div class="q-mark">?</div>
+                <div>
+                    <h4 style="margin-bottom: 5px;">Şifremi unuttum, ne yapmalıyım?</h4>
+                    <p style="font-size: 0.9rem; color: #64748b;">Giriş ekranında "Şifremi Unuttum" butonuna tıklayın ve
+                        güvenlik sorunuzu cevaplayarak şifrenizi sıfırlayın.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="q-mark">?</div>
+                <div>
+                    <h4 style="margin-bottom: 5px;">Programı başka bilgisayarda kullanabilir miyim?</h4>
+                    <p style="font-size: 0.9rem; color: #64748b;">Evet, program taşınabilirdir. Klasörü USB'ye
+                        kopyalayıp istediğiniz yerde çalıştırabilirsiniz.</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: auto; background: #e0f2fe; padding: 1.5rem; text-align: center;">
+            <p style="color: #0369a1; font-weight: 600;">Destek: sefa.yaprakli@gsb.gov.tr</p>
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Müf.Yard</title>
+    <title>Müf.Yard</title>
+    <!-- Google Fonts: Inter for clean, modern look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lato:wght@400;700&family=Open+Sans:wght@400;600&family=Roboto:wght@400;500;700&family=Playfair+Display:wght@700&family=Patrick+Hand&family=Merriweather:wght@300;400;700&family=Ubuntu+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <!-- Material Icons (Rounded) -->
+    <!-- Material Icons (Rounded) -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <!-- CryptoJS for Data Encryption -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- Apple & Favicon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="logo.png">
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="icon" type="image/x-icon" href="icon.ico">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Chart.js for statistics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- SheetJS for Excel Reading (Local & UMD Fix) -->
+    <script>
+        // Electron ortamında harici scriptlerin window'a yazmasını sağlamak için module/exports'u gizliyoruz
+        if (typeof module === 'object') { window.module = module; module = undefined; }
+        if (typeof exports === 'object') { window.exports = exports; exports = undefined; }
+    </script>
+    <script src="libs/xlsx.full.min.js"></script>
+    <script>
+        // Geri yüklüyoruz
+        if (window.module) module = window.module;
+        if (window.exports) exports = window.exports;
+    </script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <span class="material-icons-round brand-icon">verified_user</span>
+                <div class="brand-text">
+                    <h1>Müf.Yard</h1>
+                    <span class="subtitle" style="font-size: 0.65rem; letter-spacing: 0.5px; color: #fff;">Dijital
+                        Müfettiş
+                        Yardımcısı</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-view="dashboard">
+                    <span class="material-icons-round">dashboard</span>
+                    <span>Genel Bakış</span>
+                </button>
+                <button class="nav-item" data-view="reports">
+                    <span class="material-icons-round">description</span>
+                    <span>Görevler</span>
+                </button>
+
+                <button class="nav-item" data-view="tasks">
+                    <span class="material-icons-round">check_circle</span>
+                    <span>Yapılacaklar</span>
+                </button>
+                <button class="nav-item" data-view="calendar">
+                    <span class="material-icons-round">calendar_month</span>
+                    <span>Takvim</span>
+                </button>
+                <button class="nav-item" data-view="notes">
+                    <span class="material-icons-round">edit_note</span>
+                    <span>Hızlı Notlar</span>
+                </button>
+                <button class="nav-item" data-view="contacts">
+                    <span class="material-icons-round">contacts</span>
+                    <span>Rehber</span>
+                </button>
+                <button class="nav-item" data-view="files">
+                    <span class="material-icons-round">folder_shared</span>
+                    <span>Dosyalarım</span>
+                </button>
+                <button class="nav-item" data-view="assistant" style="color: #60a5fa; font-weight: 500;">
+                    <span class="material-icons-round">smart_toy</span>
+                    <span>Dijital MüfYard</span>
+                </button>
+                <div style="height:1px; background:rgba(255,255,255,0.1); margin:0.5rem 1rem;"></div>
+                <button class="nav-item" data-view="settings">
+                    <span class="material-icons-round">settings</span>
+                    <span>Ayarlar</span>
+                </button>
+            </nav>
+
+            <div style="margin-top:auto; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.1);">
+                <h5
+                    style="font-size:0.7rem; color:rgba(255,255,255,0.5); padding-left:0.75rem; text-transform:uppercase; margin-bottom:0.5rem;">
+                    Hızlı Erişim</h5>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.25rem;">
+                    <a href="https://www.mevzuat.gov.tr" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">gavel</span>
+                        <span>Mevzuat</span>
+                    </a>
+                    <a href="https://gsb.gov.tr/tr/sayfa/36-mevzuat#!" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">account_balance</span>
+                        <span>GSB Mevzuat</span>
+                    </a>
+                    <a href="https://belgenet.gsb.gov.tr/" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">folder_shared</span>
+                        <span>EBYS</span>
+                    </a>
+                    <a href="https://www.resmigazete.gov.tr" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">article</span>
+                        <span>Resmi Gazete</span>
+                    </a>
+                    <a href="https://eposta.gsb.gov.tr/" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">email</span>
+                        <span>E-Posta</span>
+                    </a>
+                    <a href="https://kurumsal.gsb.gov.tr/login" target="_blank" class="nav-item"
+                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">login</span>
+                        <span>Kurumsal</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="user-profile">
+                <!-- Gelecekte kullanıcı ayarları buraya gelebilir -->
+                <div class="theme-toggle" id="about-btn"
+                    onclick="document.getElementById('about-modal').style.display='flex'" title="Hakkında">
+                    <span class="material-icons-round">info</span>
+                </div>
+                <div class="theme-toggle" id="theme-toggle-btn" onclick="ThemeManager.toggle()" title="Karanlık Mod">
+                    <span class="material-icons-round">dark_mode</span>
+                </div>
+                <div class="theme-toggle" onclick="StorageManager.exportData()" title="Yedek Al (İndir)">
+                    <span class="material-icons-round">download</span>
+                </div>
+                <div class="theme-toggle" onclick="document.getElementById('import-file').click()"
+                    title="Yedeği Geri Yükle">
+                    <span class="material-icons-round">upload</span>
+                </div>
+                <input type="file" id="import-file" style="display:none;" onchange="handleFileImport(this)">
+                <div class="theme-toggle" onclick="AuthManager.logout()" title="Çıkış Yap" style="color:#f87171;">
+                    <span class="material-icons-round">logout</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <h2>
+                    <span id="page-title">Genel Bakış</span>
+                    <span id="current-date"
+                        style="font-size:0.9rem; color:var(--text-secondary); margin-left:1rem; font-weight:normal;"></span>
+                </h2>
+                <div class="header-actions">
+                    <!-- Gelecekte bildirimler vb. -->
+                </div>
+            </header>
+
+            <div id="content-area" class="content-area">
+                <!-- Dynamic Content Here -->
+                <div class="empty-state-wrapper" style="padding: 2rem; text-align: center;">
+                    <span class="material-icons-round"
+                        style="font-size: 3rem; color: #cbd5e1; animation: spin 1s linear infinite;">refresh</span>
+                    <p style="color: #64748b; margin-top: 1rem;">Yükleniyor...</p>
+                </div>
+            </div>
+
+
+
+            <!-- Assistant View -->
+            <div id="view-assistant" class="view-section" style="display:none; height:100%; padding-bottom: 2rem;">
+                <div class="chat-container">
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="chat-message system">
+                            Dijital Müfettiş Asistanına hoş geldiniz. Size nasıl yardımcı olabilirim?
+                        </div>
+                    </div>
+
+                    <!-- File Preview Area -->
+                    <div id="file-preview-area" class="file-preview-area" style="display:none;"></div>
+
+                    <div class="chat-input-area">
+                        <input type="file" id="chat-file-input" multiple style="display:none;"
+                            onchange="UIManager.handleFileSelect(this)">
+
+                        <button class="chat-btn-attach" onclick="document.getElementById('chat-file-input').click()"
+                            title="Dosya Ekle">
+                            <span class="material-icons-round">attach_file</span>
+                        </button>
+
+                        <div class="chat-input-wrapper">
+                            <textarea id="chat-input" class="chat-textarea" placeholder="Bir şeyler yazın..." rows="1"
+                                oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"></textarea>
+                        </div>
+
+                        <button class="chat-btn-send" onclick="UIManager.sendMessage()">
+                            <span class="material-icons-round">send</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="view-settings" class="view-section" style="display:none;">
+                <div class="settings-section">
+                    <div class="settings-header">
+                        <h3 style="margin:0;">Yapay Zeka Ayarları</h3>
+                        <div id="ai-connection-status" class="connection-status" title="Bağlantı Durumu"></div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label>Gemini API Anahtarı</label>
+                        <div class="api-input-group">
+                            <div class="api-input-wrapper">
+                                <input type="password" id="gemini-api-key"
+                                    placeholder="AI Studio'dan aldığınız anahtarı girin">
+                                <span class="api-visibility-toggle"
+                                    onclick="UIManager.togglePasswordVisibility('gemini-api-key')">
+                                    <span class="material-icons-round" style="font-size:1.2rem;">visibility</span>
+                                </span>
+                            </div>
+                        </div>
+                        <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.5rem;">
+                            Anahtarınız sadece cihazınızda saklanır.
+                        </p>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label>Model Seçimi</label>
+                        <select id="gemini-model-select">
+                            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Hızlı & Ekonomik)</option>
+                            <option value="gemini-1.5-pro">Gemini 1.5 Pro (Karmaşık Görevler)</option>
+                            <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Deneysel / Çok Hızlı)</option>
+                        </select>
+                    </div>
+
+                    <div style="display:flex; gap:1rem;">
+                        <button class="btn btn-primary" onclick="UIManager.saveAISettings()">
+                            <span class="material-icons-round">save</span> Kaydet ve Test Et
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-header">
+                        <h3 style="margin:0;">Veri & Yedekleme</h3>
+                    </div>
+                    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                        <button class="btn btn-outline" onclick="StorageManager.exportData()">
+                            <span class="material-icons-round">download</span> Yedeği İndir
+                        </button>
+                        <button class="btn btn-outline" onclick="document.getElementById('import-file').click()">
+                            <span class="material-icons-round">upload</span> Yedeği Geri Yükle
+                        </button>
+                        <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger);"
+                            onclick="StorageManager.clearAllData()">
+                            <span class="material-icons-round">delete_forever</span> Tüm Verileri Sıfırla
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+
+    <!-- Login Overlay -->
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="login-overlay" style="display:flex;">
+        <div class="auth-card">
+            <!-- LEFT SIDEBAR -->
+            <div class="login-sidebar">
+                <img src="logo.png" alt="Müf.Yard Logo" style="width: 100%; height: auto; display: block;">
+            </div>
+
+            <!-- RIGHT CONTENT -->
+            <div class="login-main">
+                <!-- 0. Karşılama ve Drive Bilgilendirme Ekranı (YENİ) -->
+                <div id="auth-intro" class="auth-screen">
+                    <h2 style="color:var(--primary-color); margin-bottom:0.5rem;">Hoşgeldiniz!</h2>
+                    <p style="margin-bottom:1.5rem; line-height:1.6; color:#555;">
+                        <strong>Müf.Yard</strong> verilerinizi cihazınızda şifreli olarak saklar.<br><br>
+                        Ancak bilgisayarınızın bozulması ihtimaline karşı verilerinizi
+                        <strong>Google Drive</strong> gibi bir bulut sistemine yedeklemenizi şiddetle öneririz.
+                    </p>
+
+                    <div
+                        style="background: rgba(66, 133, 244, 0.1); padding:1rem; border-radius:8px; border-left:4px solid #4285F4; margin-bottom:1.5rem;">
+                        <h4 style="margin:0 0 0.5rem 0; color:#4285F4; display:flex; align-items:center; gap:8px;">
+                            <svg width="20" height="20" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+                                <path d="m6.6 66.85 25.3-43.8 25.3 43.8z" fill="#0066da" />
+                                <path d="m43.8 23.05-25.3 43.8h25.3z" fill="#4385f5" />
+                                <path d="m0 78 11.2-19.1h64.9l11.2 19.1z" fill="#00ac47" />
+                                <path d="m31.9 31.9-25.3 43.8 11-19.1h32l-5.6-9.6z" fill="#ea4335" />
+                                <path d="m31.9 31.9 11.9 20.8 19.8-34.3-11.2-19.1z" fill="#ffba00" />
+                            </svg>
+                            Google Drive
+                        </h4>
+                        <p style="font-size:0.9em; margin:0;">
+                            Yedeklerinizi güvenle saklamak için Google Drive klasörünüzü hazırlamak ister misiniz?
+                        </p>
+                        <button
+                            onclick="if(typeof require!=='undefined'){require('electron').shell.openExternal('https://drive.google.com/drive/u/0/my-drive')}else{window.open('https://drive.google.com/drive/u/0/my-drive','_blank')}"
+                            style="background:none; border:1px solid #4285F4; color:#4285F4; padding:6px 12px; border-radius:4px; margin-top:10px; cursor:pointer; font-size:0.9em;">
+                            Google Drive'ı Tarayıcıda Aç
+                        </button>
+                    </div>
+
+                    <button class="btn btn-primary" style="width:100%;" onclick="AuthManager.showScreen('register')">
+                        Okudum, Kuruluma Başla
+                    </button>
+                </div>
+
+                <!-- 1. Kayıt / Kurulum Ekranı -->
+                <div id="auth-register" class="auth-screen" style="display:none;">
+                    <h3>İlk Kurulum</h3>
+                    <p class="text-sm" style="margin-bottom:1rem;">Kullanıcı profilinizi oluşturun.</p>
+
+                    <div class="form-group">
+                        <label>Ad Soyad / Ünvan</label>
+                        <input type="text" id="reg-fullname" placeholder="Örn: Ahmet Yılmaz">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Kullanıcı Adı</label>
+                        <input type="text" id="reg-username" placeholder="Giriş için kullanılacak">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Şifre</label>
+                        <input type="password" id="reg-password" placeholder="Güvenli bir şifre">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Güvenlik Sorusu</label>
+                        <input type="text" id="reg-question" placeholder="Örn: İlk evcil hayvanım?">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Güvenlik Cevabı</label>
+                        <input type="text" id="reg-answer" placeholder="Cevabınız">
+                    </div>
+
+                    <button class="btn btn-primary" style="width:100%; margin-top:1rem;"
+                        onclick="AuthManager.register()">
+                        Kurulumu Tamamla
+                    </button>
+                </div>
+
+                <!-- 2. Giriş Ekranı -->
+                <div id="auth-login" class="auth-screen" style="display:none;">
+                    <h3>Giriş Yap</h3>
+                    <p class="text-sm" style="margin-bottom:1rem; color:var(--text-secondary);">Devam etmek için
+                        şifrenizi girin.</p>
+
+                    <div class="form-group">
+                        <label>Kullanıcı Adı</label>
+                        <input type="text" id="login-username">
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label>Şifre</label>
+                        <input type="password" id="login-password" onkeypress="AuthManager.handleKey(event, 'login')">
+                    </div>
+
+                    <div id="login-error"
+                        style="color:var(--danger); font-size:0.85rem; display:none; margin-bottom:1rem;"></div>
+
+                    <button class="btn btn-primary" style="width:100%; margin-top: 1.5rem;"
+                        onclick="AuthManager.login()">
+                        Giriş Yap
+                    </button>
+
+                    <div style="margin-top:1rem; text-align:center;">
+                        <a href="#" onclick="AuthManager.showScreen('forgot')"
+                            style="font-size:0.85rem; color:var(--primary-color); text-decoration:none;">Şifremi
+                            Unuttum</a>
+                    </div>
+                </div>
+
+                <!-- 3. Şifremi Unuttum Ekranı -->
+                <div id="auth-forgot" class="auth-screen" style="display:none;">
+                    <h3>Şifre Yenileme</h3>
+
+                    <div id="forgot-step-1">
+                        <p class="text-sm" style="margin-bottom:1rem;">Kullanıcı adınızı girin.</p>
+                        <div class="form-group">
+                            <label>Kullanıcı Adı</label>
+                            <input type="text" id="forgot-username">
+                        </div>
+                        <button class="btn btn-primary" style="width:100%; margin-top:1rem;"
+                            onclick="AuthManager.checkRecoveryUser()">
+                            Devam Et
+                        </button>
+                        <div style="margin-top:1rem; text-align:center;">
+                            <a href="#" onclick="AuthManager.showScreen('login')"
+                                style="font-size:0.85rem; color:var(--text-secondary); text-decoration:none;">Girişe
+                                Dön</a>
+                        </div>
+                    </div>
+
+                    <div id="forgot-step-2" style="display:none;">
+                        <p class="text-sm" style="margin-bottom:1rem;">Güvenlik sorusunu cevaplayın.</p>
+
+                        <div class="form-group">
+                            <label id="recovery-question-display"
+                                style="font-weight:bold; color:var(--primary-color);"></label>
+                            <input type="text" id="forgot-answer" placeholder="Cevabınız">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Yeni Şifre</label>
+                            <input type="password" id="new-password">
+                        </div>
+
+                        <button class="btn btn-primary" style="width:100%; margin-top:1rem;"
+                            onclick="AuthManager.resetPassword()">
+                            Şifreyi Güncelle
+                        </button>
+                        <div style="margin-top:1rem; text-align:center;">
+                            <a href="#" onclick="AuthManager.showScreen('login')"
+                                style="font-size:0.85rem; color:var(--text-secondary); text-decoration:none;">İptal</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Note Modal -->
+    <div id="note-modal" class="login-overlay" style="display:none; z-index:10000;">
+        <div class="login-card" style="max-width:400px; padding:1.5rem;">
+            <h3 id="note-modal-date" style="margin-bottom:1rem; color:var(--primary-color);">Not Ekle</h3>
+            <textarea id="note-modal-input" rows="4"
+                style="width:100%; padding:0.8rem; border:1px solid #e2e8f0; border-radius:8px; resize:vertical; margin-bottom:1rem;"
+                placeholder="Notunuzu buraya yazın..."></textarea>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                <button class="btn btn-outline"
+                    onclick="document.getElementById('note-modal').style.display='none'">İptal</button>
+                <button class="btn btn-primary" onclick="CalendarManager.saveNoteFromModal()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reminder Modal -->
+    <div id="reminder-modal" class="login-overlay" style="display:none; z-index:10000;">
+        <div class="login-card" style="max-width:600px; padding:2rem;">
+            <h3 style="margin-bottom:1rem; color:var(--primary-color);">Hatırlatıcı Ekle</h3>
+            <input type="hidden" id="reminder-item-id">
+            <input type="hidden" id="reminder-item-type">
+
+            <div class="form-group">
+                <label>Hatırlatıcı Başlığı</label>
+                <input type="text" id="reminder-title" placeholder="Hatırlatıcı başlığı">
+            </div>
+
+            <div class="form-group">
+                <label>Tarih</label>
+                <input type="date" id="reminder-date">
+            </div>
+
+            <div class="form-group">
+                <label>Saat</label>
+                <input type="time" id="reminder-time">
+            </div>
+
+            <div class="form-group">
+                <label>Öncelik</label>
+                <select id="reminder-priority">
+                    <option value="low">Düşük</option>
+                    <option value="medium" selected>Orta</option>
+                    <option value="high">Yüksek</option>
+                </select>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+                <button class="btn btn-outline"
+                    onclick="document.getElementById('reminder-modal').style.display='none'">İptal</button>
+                <button class="btn btn-primary" onclick="saveReminder()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Note Editor Themes */
+        .style-postit {
+            background-color: #fef3c7;
+            color: #451a03;
+        }
+
+        .style-agenda {
+            background-color: #fff;
+            background-image: linear-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 100% 2em;
+            /* Line height match */
+            line-height: 2em;
+            color: #1e293b;
+        }
+
+        .style-parchment {
+            background-color: #f5e6d3;
+            color: #4b3621;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+        }
+
+        .style-default {
+            background-color: #fff;
+            color: var(--text-main);
+            border: 1px solid #e2e8f0;
+        }
+    </style>
+    <!-- About Modal -->
+    <div id="about-modal" class="modal">
+        <div class="modal-content" style="text-align:center; max-width:400px; padding: 2.5rem; border-radius: 1.5rem;">
+            <div
+                style="width:64px; height:64px; background:var(--primary-color); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem;">
+                <span class="material-icons-round" style="font-size:32px;">verified_user</span>
+            </div>
+            <h2 style="margin-bottom:0.5rem; color:#ffffff;">Müf.Yard</h2>
+            <p style="color:rgba(255,255,255,0.7); margin-bottom:1.5rem;">Dijital Müfettiş Yardımcısı v1.0</p>
+
+            <div
+                style="background:var(--bg-body); padding:1rem; border-radius:1rem; text-align:justify; margin-bottom:1.5rem; font-size:0.9rem; color:var(--text-main); line-height:1.6;">
+                <p>Bu yazılım, Gençlik ve Spor Bakanlığı denetim süreçlerini dijital çağa uyarlamak amacıyla
+                    geliştirilmiş, <strong>Yapay Zeka</strong> teknolojileriyle desteklenen modern bir müfettiş
+                    projesidir.</p>
+                <p style="margin-top:1rem;">Bu program sizin refakatinize verilmiş bir <strong>müfettiş
+                        yardımcısıdır</strong>. Hem sizin işlerinizi kolaylaştırır, hem de size yardımcı olur. Onu
+                    geliştirmek ise sizin elinizde ;)</p>
+                <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border-color);">
+                    <strong>Geliştirici:</strong> Sefa YAPRAKLI<br>
+                    <strong>Ünvan:</strong> Müfettiş<br>
+                    <p style="margin-top:0.5rem; font-style:italic; font-size:0.85rem; color:var(--text-secondary);">
+                        Bu proje, meslektaşlarımın işini kolaylaştırmak amacıyla geliştirilmiştir.</p>
+                </div>
+
+
+            </div>
+
+            <button class="btn btn-primary" onclick="document.getElementById('about-modal').style.display='none'"
+                style="width:100%; margin-top:1rem;">
+                Kapat
+            </button>
+        </div>
+    </div>
+
+    <!-- Note Modal for Calendar -->
+    <div id="calendar-note-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:500px; padding:2rem;">
+            <h3 id="calendar-note-date" style="margin-bottom:1rem; color:var(--text-main);">Not Ekle</h3>
+            <div class="form-group">
+                <label>Notunuz</label>
+                <textarea id="calendar-note-input" rows="4" placeholder="Notunuzu buraya yazın..."
+                    style="width:100%; padding:0.75rem; border:1px solid #e2e8f0; border-radius:8px; font-family:inherit; resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                <button class="btn btn-primary" onclick="CalendarManager.saveNoteFromModal()" style="flex:1;">
+                    <span class="material-icons-round">save</span> Kaydet
+                </button>
+                <button class="btn btn-outline"
+                    onclick="document.getElementById('calendar-note-modal').style.display='none'; document.getElementById('calendar-note-input').value='';"
+                    style="flex:1;">
+                    İptal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Confirmation Modal -->
+    <div id="confirm-modal" class="login-overlay" style="display:none; z-index:10001;">
+        <div class="login-card" style="max-width:400px; padding:1.5rem; text-align:center;">
+            <div class="icon-box warning" style="margin:0 auto 1rem; width:50px; height:50px;">
+                <span class="material-icons-round" style="font-size:32px;">priority_high</span>
+            </div>
+            <h3 style="margin-bottom:0.5rem; color:var(--text-main);">Emin misiniz?</h3>
+            <p id="confirm-message" style="color:var(--text-secondary); margin-bottom:1.5rem;">Bu işlemi onaylıyor
+                musunuz?</p>
+            <div style="display:flex; justify-content:center; gap:0.5rem;">
+                <button class="btn btn-outline" id="confirm-cancel-btn" style="min-width:100px;">İptal</button>
+                <button class="btn btn-primary" id="confirm-ok-btn"
+                    style="min-width:100px; background:var(--danger); border-color:var(--danger);">Evet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Modal -->
+    <div id="template-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header"
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h3 style="margin:0; font-size:1.5rem;">Şablon Seçiniz</h3>
+                <button class="settings-close" id="template-close-btn"
+                    style="background:transparent; border:none; font-size:1.8rem; line-height:1; cursor:pointer; color:var(--text-secondary);">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Lütfen oluşturmak istediğiniz rapor şablonunu seçin:</p>
+                <div id="template-list"
+                    style="display:flex; flex-direction:column; gap:0.5rem; max-height:300px; overflow-y:auto; margin-top:1rem;">
+                    <!-- Template Items -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Corporate Edit Modal -->
+    <div id="corporate-edit-modal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header"
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h3 style="margin:0; font-size:1.3rem;">Kişi Düzenle</h3>
+                <button onclick="document.getElementById('corporate-edit-modal').style.display='none'"
+                    style="background:transparent; border:none; font-size:1.8rem; line-height:1; cursor:pointer; color:var(--text-secondary);">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-corp-original-name">
+                <div class="form-group">
+                    <label>Ad Soyad</label>
+                    <input type="text" id="edit-corp-name" placeholder="Ad Soyad" disabled
+                        style="background:#f1f5f9; cursor:not-allowed;">
+                    <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">İsim değiştirilemez (Referans alanı)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Ünvan</label>
+                    <input type="text" id="edit-corp-role" placeholder="Ünvan">
+                </div>
+                <div class="form-group">
+                    <label>Telefon</label>
+                    <input type="text" id="edit-corp-phone" placeholder="05XX XXX XX XX">
+                </div>
+                <div class="form-group">
+                    <label>Dahili</label>
+                    <input type="text" id="edit-corp-ext" placeholder="XXXX">
+                </div>
+                <div style="display:flex; gap:1rem;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Kat</label>
+                        <input type="text" id="edit-corp-floor" placeholder="Kat No">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Oda</label>
+                        <input type="text" id="edit-corp-room" placeholder="Oda No">
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:end; gap:0.5rem; margin-top:1.5rem;">
+                    <button class="btn btn-outline"
+                        onclick="document.getElementById('corporate-edit-modal').style.display='none'">İptal</button>
+                    <button class="btn btn-primary" onclick="CorporateContactsManager.saveEdit()">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="toast.js"></script>
+    <script src="calendar_logic.js"></script>
+    <script src="AIService.js"></script>
+    <script src="app.js"></script>
+
+    <!-- Assistant Settings Modal -->
+    <div id="ai-settings-modal" class="modal">
+        <div class="modal-content settings-modal-content">
+            <div class="modal-header"
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h3 style="margin:0;">Asistan Ayarları</h3>
+                <button onclick="document.getElementById('ai-settings-modal').style.display='none'"
+                    style="background:transparent; border:none; font-size:1.8rem; line-height:1; cursor:pointer; color:var(--text-secondary);">&times;</button>
+            </div>
+
+            <div class="settings-tabs">
+                <div class="settings-tab active" onclick="UIManager.switchSettingsTab('modes')">Davranış Modları</div>
+                <div class="settings-tab" onclick="UIManager.switchSettingsTab('rules')">Kurallar</div>
+                <div class="settings-tab" onclick="UIManager.switchSettingsTab('training')">Eğitim Verileri</div>
+            </div>
+
+            <!-- TAB 1: MODES -->
+            <div id="tab-modes" class="settings-panel active">
+                <div style="margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
+                    <p style="font-size:0.9rem; color:var(--text-secondary);">Asistanın kimliğine bürüneceği modu seçin.
+                    </p>
+                    <button class="btn btn-outline" onclick="UIManager.showAddModeForm()"
+                        style="padding:0.4rem 0.8rem; font-size:0.8rem;">
+                        <span class="material-icons-round" style="font-size:1rem;">add</span> Yeni Mod
+                    </button>
+                </div>
+
+                <!-- Moved from General Tab: Response Length -->
+                <div class="form-group"
+                    style="margin-bottom: 1rem; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <label style="font-size: 0.9rem; font-weight: 600;">Cevap Uzunluğu</label>
+                    <div style="display:flex; gap:1rem; margin-top:0.5rem;">
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="radio" name="resp-len" value="short"
+                                onchange="AIService.config.responseLength='short'; AIService.saveConfig();">
+                            Kısa & Öz
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="radio" name="resp-len" value="detailed"
+                                onchange="AIService.config.responseLength='detailed'; AIService.saveConfig();">
+                            Detaylı
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Model</label>
+                    <select id="gemini-model-select"
+                        style="width:100%; padding:0.5rem; border:1px solid #e2e8f0; border-radius:6px; margin-top:0.25rem;">
+                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Hızlı)</option>
+                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Akıllı)</option>
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (Beta)</option>
+                    </select>
+                </div>
+
+                <!-- Add Mode Form (Hidden by default) -->
+                <div id="add-mode-form"
+                    style="display:none; background:#f8fafc; padding:1rem; border-radius:8px; margin-bottom:1rem; border:1px solid #e2e8f0;">
+                    <div class="form-group">
+                        <label>Mod Adı</label>
+                        <input type="text" id="new-mode-name" placeholder="Örn: Agresif">
+                    </div>
+                    <div class="form-group" style="margin-top:0.5rem;">
+                        <label>Talimat (Prompt)</label>
+                        <textarea id="new-mode-instruction" rows="2"
+                            placeholder="Örn: Her şeye sinirli cevap ver."></textarea>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.5rem;">
+                        <button class="btn btn-outline"
+                            onclick="document.getElementById('add-mode-form').style.display='none'">İptal</button>
+                        <button class="btn btn-primary" onclick="UIManager.saveNewMode()">Kaydet</button>
+                    </div>
+                </div>
+
+                <div id="modes-list" class="config-list">
+                    <!-- Dynamic Items -->
+                </div>
+            </div>
+
+            <!-- TAB 2: RULES -->
+            <div id="tab-rules" class="settings-panel">
+                <div style="margin-bottom:1rem;">
+                    <div class="form-group">
+                        <label>Yeni Kural Ekle</label>
+                        <div style="display:flex; gap:0.5rem;">
+                            <input type="text" id="new-rule-input" placeholder="Örn: Cevapları madde madde ver.">
+                            <button class="btn btn-primary" onclick="UIManager.addRule()">Ekle</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="rules-list" class="config-list">
+                    <!-- Dynamic Items -->
+                </div>
+            </div>
+
+            <!-- TAB 3: TRAINING -->
+            <div id="tab-training" class="settings-panel">
+                <div style="margin-bottom:1rem;">
+                    <div class="empty-state"
+                        style="padding:1.5rem; border:2px dashed #e2e8f0; border-radius:8px; cursor:pointer;"
+                        onclick="document.getElementById('training-file-input').click()">
+                        <span class="material-icons-round"
+                            style="font-size:2rem; margin-bottom:0.5rem;">cloud_upload</span>
+                        <p>Dosya Yüklemek İçin Tıklayın</p>
+                        <span style="font-size:0.75rem;">(PDF, DOCX, TXT)</span>
+                    </div>
+                    <input type="file" id="training-file-input" multiple style="display:none;"
+                        onchange="UIManager.handleTrainingUpload(this)">
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                    <h4 style="margin:0;">Yüklü Dosyalar</h4>
+                    <button class="btn btn-outline"
+                        style="color:var(--danger); border-color:var(--danger); padding:0.2rem 0.6rem; font-size:0.75rem;"
+                        onclick="AIService.clearAllContext(); UIManager.renderTrainingList();">
+                        Temizle
+                    </button>
+                </div>
+                <div id="training-list" class="config-list">
+                    <!-- Dynamic Items -->
+                </div>
+            </div> <!-- End of Tab Training -->
+
+        </div>
+    </div>
+</body>
+
+</html>
