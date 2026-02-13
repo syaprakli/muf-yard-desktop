@@ -12,7 +12,10 @@
   "keywords": [],
   "license": "ISC",
   "dependencies": {
-    "electron-updater": "^6.6.2"
+    "electron-updater": "^6.6.2",
+    "mammoth": "^1.11.0",
+    "pdf-parse": "^2.4.5",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "electron": "^39.2.7",

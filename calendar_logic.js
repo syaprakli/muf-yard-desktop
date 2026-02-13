@@ -3,6 +3,7 @@ const CalendarManager = {
 
     currentDate: new Date(),
     selectedDateStr: '',
+    activeNoteId: null,
 
     initCalendarView: () => {
         CalendarManager.renderCalendar();
@@ -23,8 +24,22 @@ const CalendarManager = {
         const input = document.getElementById('calendar-note-input');
 
         if (modal && title && input) {
-            title.textContent = `${CalendarManager.selectedDateStr} - Not Ekle`;
-            input.value = ''; // Clear previous
+            // Check for existing note
+            const notes = typeof NoteManager !== 'undefined' ? NoteManager.getNotes() : [];
+            const existingNote = notes.find(n => n.content.startsWith(`[${CalendarManager.selectedDateStr}]`));
+
+            if (existingNote) {
+                CalendarManager.activeNoteId = existingNote.id;
+                title.textContent = `${CalendarManager.selectedDateStr} - Notu Düzenle`;
+                // Strip the date prefix for editing
+                const cleanContent = existingNote.content.replace(`[${CalendarManager.selectedDateStr}]`, '').trim();
+                input.value = cleanContent;
+            } else {
+                CalendarManager.activeNoteId = null;
+                title.textContent = `${CalendarManager.selectedDateStr} - Not Ekle`;
+                input.value = '';
+            }
+
             modal.style.display = 'flex';
             input.focus();
         }
@@ -37,12 +52,22 @@ const CalendarManager = {
         if (noteContent) {
             if (typeof NoteManager !== 'undefined') {
                 const fullContent = `[${CalendarManager.selectedDateStr}] ${noteContent}`;
-                NoteManager.addNote(fullContent);
-                Toast.show('Not kaydedildi!', 'success');
 
-                // Modal'ı kapat ve input'u temizle
+                if (CalendarManager.activeNoteId) {
+                    NoteManager.updateNote(CalendarManager.activeNoteId, fullContent);
+                    Toast.show('Not güncellendi!', 'success');
+                } else {
+                    NoteManager.addNote(fullContent);
+                    Toast.show('Not kaydedildi!', 'success');
+                }
+
+                // Reset state
+                CalendarManager.activeNoteId = null;
                 input.value = '';
                 document.getElementById('calendar-note-modal').style.display = 'none';
+
+                // Takvimi anında güncelle
+                CalendarManager.renderCalendar();
             } else {
                 Toast.show('Hata: NoteManager bulunamadı.', 'error');
             }
@@ -64,6 +89,7 @@ const CalendarManager = {
                 const fullContent = `[${dateStr}] ${noteContent}`;
                 NoteManager.addNote(fullContent);
                 Toast.show('Not başarıyla eklendi! "Hızlı Notlar" bölümünden görebilirsiniz.', 'success');
+                CalendarManager.renderCalendar();
             } else {
                 Toast.show('Hata: Not yöneticisi bulunamadı.', 'error');
             }
@@ -134,6 +160,7 @@ const CalendarManager = {
         }
 
         const reports = typeof ReportManager !== 'undefined' ? ReportManager.getReports() : [];
+        const notes = typeof NoteManager !== 'undefined' ? NoteManager.getNotes() : [];
 
         // Özel Günler Listesi
         const specialDays = {
@@ -151,13 +178,26 @@ const CalendarManager = {
         // Günleri Doldur
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const displayDateStr = `${day} ${CalendarManager.getMonthName(currentMonth)} ${currentYear}`;
             const specialDayKey = `${day}-${currentMonth + 1}`;
             const specialDayName = specialDays[specialDayKey];
 
+            // Check if this day has a note from calendar
+            const dayNote = notes.find(n => n.content.startsWith(`[${displayDateStr}]`));
+
             const isToday = (day === realToday.getDate() && currentMonth === realToday.getMonth() && currentYear === realToday.getFullYear());
 
-            let contentHTML = `<div style="font-weight:bold; color:${isToday ? 'var(--primary-color)' : 'var(--text-secondary)'}; margin-bottom:0.5rem; display:flex; justify-content:space-between; pointer-events:none;">
-                <span>${day}</span>
+            let noteIconHTML = '';
+            if (dayNote) {
+                const cleanContent = dayNote.content.replace(`[${displayDateStr}]`, '').trim();
+                noteIconHTML = `<span class="material-icons-round" style="font-size:1rem; color:#0ea5e9; vertical-align:middle; margin-left:4px; cursor:help;" title="Not: ${cleanContent}">description</span>`;
+            }
+
+            let contentHTML = `<div style="font-weight:bold; color:${isToday ? 'var(--primary-color)' : 'var(--text-secondary)'}; margin-bottom:0.4rem; display:flex; justify-content:space-between; align-items:center; pointer-events:none;">
+                <div style="display:flex; align-items:center;">
+                    <span>${day}</span>
+                    ${noteIconHTML}
+                </div>
                 ${isToday ? '<span style="font-size:0.65rem; background:#dbeafe; color:#1e40af; padding:1px 4px; border-radius:4px;">BUGÜN</span>' : ''}
             </div>`;
 
@@ -168,15 +208,15 @@ const CalendarManager = {
             reports.forEach(rep => {
                 // Static Items
                 if (rep.startDate === dateStr) {
-                    contentHTML += `<div class="cal-event" data-type="start" title="${rep.title}">Başlangıç: ${rep.code}</div>`;
+                    contentHTML += `<div class="cal-event" data-type="start" title="${rep.title}">B: ${rep.code}</div>`;
                 }
                 if (rep.deadline === dateStr) {
-                    contentHTML += `<div class="cal-event" data-type="deadline" title="${rep.title}">Teslim: ${rep.code}</div>`;
+                    contentHTML += `<div class="cal-event" data-type="deadline" title="${rep.title}">T: ${rep.code}</div>`;
                 }
             });
 
             // Hover note hint
-            contentHTML += `<div class="add-note-hint" style="margin-top:auto; text-align:center; font-size:0.7rem; color:#94a3b8; display:none;">+ Not Ekle</div>`;
+            contentHTML += `<div class="add-note-hint" style="margin-top:auto; text-align:center; font-size:0.7rem; color:#94a3b8; display:none;">+ Not</div>`;
 
             grid.innerHTML += `
                 <div onclick="window.CalendarManager.openNoteModal(${day})" 

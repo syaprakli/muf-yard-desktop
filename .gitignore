@@ -1,20 +1,33 @@
+# Environment Variables
+.env
+.env.local
+
+# Build/Package
 node_modules/
 dist/
-release/
 build/
+out/
+release/
+
+# Project Specific Data (User Files)
+AI_Context/
+Raporlar/
+Dosyalar/
+Yedekler/
+Sablonlar/*/
+!Sablonlar/README.md
+
+# Logs and SQLite (if any)
+*.log
+*.sqlite
+*.db
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE Files
 .vscode/
 .idea/
-.DS_Store
-*.log
-.env
-.user-data/
-workspaces/
-*.exe
-*.zip
-*.dmg
-YEDEK_FINAL/
-Yedekler/
-_BACKUPS/
-backups/
-MufYard/
-
+*.swp
+*.swo

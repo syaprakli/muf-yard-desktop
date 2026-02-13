@@ -2,565 +2,9 @@
  * Müfettiş Asistanı - Main Application Logic
  */
 
-// --- Data Layer ---
-class PathManager {
-    static getRoot() {
-        if (typeof require !== 'undefined') {
-            const path = require('path');
-            const fs = require('fs');
-            const os = require('os');
-            let basePath;
 
-            // 1. Dizin Tespit Stratejisi
-            if (process.execPath.includes('node_modules') || process.execPath.includes('electron.exe') || process.execPath.includes('electron.cmd')) {
-                basePath = process.cwd(); // Geliştirme (Playground)
-            } else {
-                basePath = path.dirname(process.execPath); // Üretim (.exe'nin yanı)
-            }
-
-            // 2. Klasör İsmi Kontrolü (İç içe MufYard/MufYard oluşmasını önle)
-            const baseDirName = path.basename(basePath);
-            if (baseDirName.toLowerCase() === 'mufyard') {
-                return basePath; // Zaten MufYard içindeyiz, burayı kök al.
-            }
-
-            const targetPath = path.join(basePath, 'MufYard');
-
-            // 3. Yazma İzni Kontrolü (Admin yetkisi gerekirse 'Belgeler'e taşı)
-            try {
-                if (!fs.existsSync(targetPath)) {
-                    fs.mkdirSync(targetPath, { recursive: true });
-                }
-                // Test yazması dene
-                const testFile = path.join(targetPath, '.write_test');
-                fs.writeFileSync(testFile, 'test');
-                fs.unlinkSync(testFile);
-            } catch (e) {
-                const fallback = path.join(os.homedir(), 'Documents', 'MufYard');
-                console.warn('Kurulum dizinine yazma izni yok, Belgeler kullanılıyor:', fallback);
-                return fallback;
-            }
-
-            console.log('PathManager: Uygulama kök dizini (Target):', targetPath);
-            return targetPath;
-        }
-        return 'MufYard';
-    }
-
-    static join(...parts) {
-        if (typeof require !== 'undefined') {
-            return require('path').join(this.getRoot(), ...parts);
-        }
-        return [this.getRoot(), ...parts].join('\\');
-    }
-
-    static getTemplatesPath() {
-        const path = require('path');
-        const fs = require('fs');
-
-        let candidates = [
-            this.join('Sablonlar'), // C:\MufYard\Sablonlar (Development/Portable)
-            this.join('resources', 'Sablonlar') // C:\MufYard\resources\Sablonlar (Production)
-        ];
-
-        for (const candidate of candidates) {
-            if (fs.existsSync(candidate)) {
-                return candidate;
-            }
-        }
-        // Fallback to root if neither exists (will likely be created there)
-        return this.join('Sablonlar');
-    }
-}
-
-class StorageManager {
-    static get SECRET_KEY() { return 'MufYard_Secret_Key_2025'; }
-    static get ENCRYPTED_KEYS() { return ['reports', 'tasks', 'contacts', 'notes', 'app_user']; }
-
-    static get(key, defaultValue = null) {
-        const stored = localStorage.getItem(key);
-        if (!stored) return defaultValue;
-
-        // Şifreli veri kontrolü (Migration Check)
-        if (this.ENCRYPTED_KEYS.includes(key)) {
-            try {
-                // 1. Önce eski veri (Plain JSON) mi diye bak?
-                // Eğer valid bir JSON objesiyse, henüz şifrelenmemiştir.
-                // Ancak "U2F..." gibi raw string JSON.parse'da hata verir.
-                const parsed = JSON.parse(stored);
-                // Başarılı olursa ve boş değilse eski veridir.
-                // (Not: Sayısal/Bool veriler de parse olabilir ama bizim key'ler array/object)
-                return parsed;
-            } catch (e) {
-                // 2. JSON değilse, muhtemelen Şifrelidir. Çözmeyi dene.
-                try {
-                    if (typeof CryptoJS === 'undefined') {
-                        console.error('CryptoJS not loaded!');
-                        return defaultValue;
-                    }
-                    const bytes = CryptoJS.AES.decrypt(stored, this.SECRET_KEY);
-                    const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
-
-                    if (!decryptedStr) return defaultValue; // Boş dönerse decrypt hatası/boş veri
-
-                    return JSON.parse(decryptedStr);
-                } catch (decErr) {
-                    console.error('Decryption Error for ' + key, decErr);
-                    return defaultValue;
-                }
-            }
-        }
-
-        // Şifresiz veriler (Ayarlar vs.)
-        try {
-            return JSON.parse(stored);
-        } catch (e) {
-            return defaultValue;
-        }
-    }
-
-    static set(key, value) {
-        try {
-            if (this.ENCRYPTED_KEYS.includes(key)) {
-                if (typeof CryptoJS !== 'undefined') {
-                    const jsonStr = JSON.stringify(value);
-                    const encrypted = CryptoJS.AES.encrypt(jsonStr, this.SECRET_KEY).toString();
-                    localStorage.setItem(key, encrypted);
-                } else {
-                    console.warn('CryptoJS missing, saving plain text!');
-                    localStorage.setItem(key, JSON.stringify(value));
-                }
-            } else {
-                localStorage.setItem(key, JSON.stringify(value));
-            }
-        } catch (e) {
-            if (e.name === 'QuotaExceededError' || e.code === 22 || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                const msg = 'Depolama alanı doldu! Lütfen bazı eski kayıtları temizleyin veya fotoğrafları silin.';
-                if (typeof Toast !== 'undefined') {
-                    Toast.show(msg, 'error');
-                } else {
-                    alert(msg);
-                }
-                console.error('Storage Quota Exceeded:', e);
-            } else {
-                console.error('Storage Save Error:', e);
-            }
-        }
-    }
-
-    static addToArray(key, item) {
-        const items = this.get(key, []);
-        items.unshift(item); // En yeni en başa
-        this.set(key, items);
-        return items;
-    }
-
-    static removeFromArray(key, idField, idValue) {
-        let items = this.get(key, []);
-        items = items.filter(item => item[idField] !== idValue);
-        this.set(key, items);
-        return items;
-    }
-
-    static exportData() {
-        if (typeof BackupManager !== 'undefined') {
-            BackupManager.createBackup(true);
-        } else {
-            alert('Yedekleme yöneticisi yüklenemedi.');
-        }
-    }
-
-    static importData(jsonData) {
-        try {
-            const data = JSON.parse(jsonData);
-            // Import ederken set metodunu kullandığımız için otomatik şifrelenecek
-            if (data.reports) this.set('reports', data.reports);
-            if (data.tasks) this.set('tasks', data.tasks);
-            if (data.contacts) this.set('contacts', data.contacts);
-            if (data.notes) this.set('notes', data.notes);
-
-            Toast.show('Veriler başarıyla yüklendi (Şifrelendi).', 'success');
-            setTimeout(() => location.reload(), 1500);
-            return true;
-        } catch (e) {
-            console.error('Import Error:', e);
-            alert('Yedek dosyası bozuk veya hatalı format.');
-            return false;
-        }
-    }
-
-    static clearAllData() {
-        if (confirm('TÜM VERİLERİNİZ SİLİNECEKTİR!\n\nRaporlar, görevler, notlar ve kullanıcı ayarları dahil her şey kalıcı olarak temizlenecektir. Emin misiniz?')) {
-            localStorage.clear();
-            alert('Tüm veriler temizlendi. Uygulama yeniden başlatılıyor.');
-            location.reload();
-        }
-    }
-}
-
-
-class BackupManager {
-    static createBackup(interactive = false) {
-        if (typeof require === 'undefined') {
-            if (interactive) {
-                if (typeof Toast !== 'undefined') Toast.show('Yedekleme sadece masaüstü uygulamasında çalışır.', 'warning');
-                else alert('Yedekleme sadece masaüstü uygulamasında çalışır.');
-            }
-            return;
-        }
-
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const { shell } = require('electron');
-
-            // 1. Verileri Hazırla
-            const data = {
-                meta: {
-                    date: new Date().toISOString(),
-                    version: '1.0',
-                    user: (typeof AuthManager !== 'undefined') ? AuthManager.getUser()?.username : 'unknown'
-                },
-                app_user: StorageManager.get('app_user'),
-                reports: StorageManager.get('reports'),
-                tasks: StorageManager.get('tasks'),
-                contacts: StorageManager.get('contacts'),
-                notes: StorageManager.get('notes'),
-                audit_records: StorageManager.get('audit_records'),
-                corp_overrides: StorageManager.get('corp_overrides'),
-                theme: StorageManager.get('theme')
-            };
-
-            const os = require('os');
-            const homeDir = os.homedir();
-
-            // 2. Yedekleme Konumu Belirle (Akıllı Algılama)
-            let backupBase = PathManager.getRoot(); // Varsayılan: Documents/MufYard
-
-            // Google Drive Kontrolü
-            const drivePath = path.join(homeDir, 'Google Drive');
-            const oneDrivePath = path.join(homeDir, 'OneDrive'); // OneDrive da yaygın
-
-            if (fs.existsSync(drivePath)) {
-                backupBase = path.join(drivePath, 'MufYard');
-                console.log('Google Drive algılandı, yedekleme buraya yapılacak:', backupBase);
-            } else if (fs.existsSync(oneDrivePath)) {
-                // Opsiyonel: OneDrive varsa orayı kullan
-                backupBase = path.join(oneDrivePath, 'MufYard');
-            }
-
-            const backupDir = path.join(backupBase, 'Yedekler');
-            if (!fs.existsSync(backupDir)) {
-                fs.mkdirSync(backupDir, { recursive: true });
-            }
-
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-            const filename = `MufYard_Yedek_${timestamp}.json`;
-            const filePath = path.join(backupDir, filename);
-
-            // 3. Yaz
-            fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-            console.log('Yedek oluşturuldu:', filePath);
-
-            if (interactive) {
-                // Confirm kaldırıldı, sadece bilgilendir
-                Toast.show('Yedekleme başarılı: ' + filename, 'success');
-                // Dosya konumunu göster
-                shell.showItemInFolder(filePath);
-            }
-
-        } catch (e) {
-            console.error('Backup Error:', e);
-            if (interactive) Toast.show('Yedekleme hatası: ' + e.message, 'error');
-        }
-    }
-
-    static autoBackup() {
-        try {
-            const lastBackup = localStorage.getItem('last_auto_backup');
-            const now = Date.now();
-            const oneDay = 24 * 60 * 60 * 1000;
-
-            if (!lastBackup || (now - parseInt(lastBackup)) > oneDay) {
-                console.log('Otomatik yedekleme başlatılıyor...');
-                this.createBackup(false);
-                localStorage.setItem('last_auto_backup', now.toString());
-            }
-        } catch (e) {
-            console.error('Auto backup error:', e);
-        }
-    }
-
-    static shouldBackupToday() {
-        const lastBackup = localStorage.getItem('last_auto_backup');
-        if (!lastBackup) return true;
-        const lastDate = new Date(parseInt(lastBackup)).toDateString();
-        const today = new Date().toDateString();
-        return lastDate !== today;
-    }
-
-    static startDailyBackupScheduler() {
-        // Her 4 saatte bir kontrol et
-        setInterval(() => {
-            if (this.shouldBackupToday()) {
-                this.createBackup(false);
-                localStorage.setItem('last_auto_backup', Date.now().toString());
-            }
-        }, 4 * 60 * 60 * 1000);
-    }
-
-    static checkDriveSetup() {
-        // Google Drive kurulu mu kontrol et (Basit klasör kontrolü)
-        if (typeof require === 'undefined') return;
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
-        const drivePath = path.join(os.homedir(), 'Google Drive');
-
-        if (!fs.existsSync(drivePath)) {
-            console.log("Google Drive bulunamadı, yerel yedekleme yapılacak.");
-        } else {
-            console.log("Google Drive aktif.");
-        }
-    }
-}
-
-/**
- * Auth Manager - Handles Login/Register/Recovery
- */
-const AuthManager = {
-    getUser: () => {
-        return StorageManager.get('app_user');
-    },
-
-    register: () => {
-        const fullname = document.getElementById('reg-fullname').value.trim();
-        const username = document.getElementById('reg-username').value.trim();
-        const password = document.getElementById('reg-password').value;
-        const question = document.getElementById('reg-question').value;
-        const answer = document.getElementById('reg-answer').value.trim();
-
-        if (!fullname || !username || !password || !question || !answer) {
-            Toast.show('Lütfen tüm alanları doldurunuz.', 'warning');
-            return;
-        }
-
-        const user = {
-            fullname,
-            username,
-            password,
-            question,
-            answer: answer.toLowerCase()
-        };
-
-        StorageManager.set('app_user', user);
-
-
-
-        Toast.show('Kurulum tamamlandı! Giriş yapılıyor...', 'success');
-        AuthManager.showScreen('login');
-    },
-
-    login: () => {
-
-        try {
-            console.log('Login attempt...');
-            const usernameInputEl = document.getElementById('login-username');
-            const passwordInputEl = document.getElementById('login-password');
-            const errorMsg = document.getElementById('login-error');
-
-            if (!usernameInputEl || !passwordInputEl) {
-                Toast.show('Hata: Giriş kutuları bulunamadı!', 'error');
-                return;
-            }
-
-            const usernameInput = usernameInputEl.value.trim();
-            const passwordInput = passwordInputEl.value;
-
-            // Debug - Bunu canlıda yapmayız ama sorunu çözmek için:
-            // alert('Girilen: ' + usernameInput + ' / ' + passwordInput);
-
-            const user = AuthManager.getUser();
-
-            if (!user) {
-                Toast.show('Sistemde kayıtlı kullanıcı bulunamadı. Lütfen önce KURULUM yapın.', 'warning');
-                return;
-            }
-
-            if (user.username === usernameInput && user.password === passwordInput) {
-                sessionStorage.setItem('isLoggedIn', 'true');
-                errorMsg.style.display = 'none';
-                AuthManager.completeLogin(user);
-            } else {
-                errorMsg.style.display = 'block';
-                errorMsg.textContent = 'Kullanıcı adı veya şifre hatalı.';
-                // alert('Hata: Şifre uyuşmadı. Kayıtlı olan: ' + user.username);
-            }
-        } catch (e) {
-            Toast.show('Giriş Hatası: ' + e.message, 'error');
-        }
-    },
-
-    completeLogin: (user) => {
-        document.getElementById('login-overlay').style.display = 'none';
-        // Karşılama mesajı opsiyonel
-        // document.getElementById('page-header').textContent = `Hoşgeldin, ${ user.fullname } `;
-    },
-
-    logout: () => {
-        sessionStorage.removeItem('isLoggedIn');
-        location.reload();
-    },
-
-    handleKey: (event, type) => {
-        if (event.key === 'Enter') {
-            if (type === 'login') AuthManager.login();
-        }
-    },
-
-    showScreen: (screenName) => {
-        try {
-            console.log('Switching to screen:', screenName);
-            const loginEl = document.getElementById('auth-login');
-            const regEl = document.getElementById('auth-register');
-            const forgotEl = document.getElementById('auth-forgot');
-            const introEl = document.getElementById('auth-intro');
-            const targetEl = document.getElementById(`auth-${screenName}`);
-
-            if (!loginEl || !regEl || !forgotEl) {
-                Toast.show('Hata: Ekranlar HTML içinde bulunamadı. Lütfen sayfayı yenileyin.', 'error');
-                return;
-            }
-
-            if (introEl) introEl.style.display = 'none';
-            loginEl.style.display = 'none';
-            regEl.style.display = 'none';
-            forgotEl.style.display = 'none';
-
-            if (targetEl) {
-                targetEl.style.display = 'block'; // Fixed: flex caused horizontal stacking
-            } else {
-                Toast.show('Hata: Hedef ekran bulunamadı: ' + screenName, 'error');
-            }
-
-            // Reset inputs
-            if (screenName === 'login') {
-                const err = document.getElementById('login-error');
-                if (err) err.style.display = 'none';
-            }
-        } catch (e) {
-            Toast.show('Ekran geçiş hatası: ' + e.message, 'error');
-        }
-    },
-
-    // Password Recovery Logic
-    checkRecoveryUser: () => {
-        const username = document.getElementById('forgot-username').value.trim();
-        const user = AuthManager.getUser();
-
-        if (user && user.username === username) {
-            document.getElementById('forgot-step-1').style.display = 'none';
-            document.getElementById('forgot-step-2').style.display = 'block';
-
-            // Custom Question Support
-            document.getElementById('recovery-question-display').textContent = user.question || 'Güvenlik Sorusu';
-        } else {
-            Toast.show('Bu kullanıcı adı ile kayıtlı bir hesap bulunamadı.', 'warning');
-        }
-    },
-
-    resetPassword: () => {
-        const answer = document.getElementById('forgot-answer').value.trim().toLowerCase();
-        const newPass = document.getElementById('new-password').value;
-        const user = AuthManager.getUser();
-
-        if (user.answer === answer) {
-            if (!newPass) {
-                Toast.show('Lütfen yeni şifre belirleyin.', 'warning');
-                return;
-            }
-            user.password = newPass;
-            StorageManager.set('app_user', user);
-            Toast.show('Şifreniz başarıyla değiştirildi. Giriş yapabilirsiniz.', 'success');
-            location.reload();
-        } else {
-            Toast.show('Güvenlik cevabı hatalı!', 'error');
-        }
-    }
-};
-
-// Global Erişilebilirlik
-if (typeof window !== 'undefined') {
-    window.AuthManager = AuthManager;
-}
-
-
-
-
-
-class ThemeManager {
-    static init() {
-        const savedTheme = StorageManager.get('theme', 'light');
-        const savedFont = StorageManager.get('font', 'Inter');
-        const savedColor = StorageManager.get('accent_color', '#1a237e');
-        const savedSidebar = StorageManager.get('sidebar_color', '#0f172a');
-
-        this.apply(savedTheme);
-        this.applyFont(savedFont);
-        this.applyColor(savedColor);
-        this.applySidebarColor(savedSidebar);
-        this.updateIcon(savedTheme);
-    }
-
-    static toggle() {
-        const current = document.documentElement.getAttribute('data-theme');
-        const newTheme = current === 'dark' ? 'light' : 'dark';
-        this.apply(newTheme);
-        StorageManager.set('theme', newTheme);
-        this.updateIcon(newTheme);
-    }
-
-    static apply(theme) {
-        if (theme === 'dark') {
-            document.documentElement.setAttribute('data-theme', 'dark');
-        } else {
-            document.documentElement.removeAttribute('data-theme');
-        }
-    }
-
-    static applyFont(fontName) {
-        document.documentElement.style.setProperty('--font-main', `'${fontName}', sans-serif`);
-        document.body.style.fontFamily = `'${fontName}', sans-serif`;
-        StorageManager.set('font', fontName);
-    }
-
-    static applyColor(colorHex) {
-        document.documentElement.style.setProperty('--primary-color', colorHex);
-        document.documentElement.style.setProperty('--primary-light', colorHex);
-        document.documentElement.style.setProperty('--primary-dark', colorHex);
-        StorageManager.set('accent_color', colorHex);
-        StorageManager.set('themeColor', colorHex); // Sync with new UI key
-    }
-
-    static applySidebarColor(colorHex) {
-        document.documentElement.style.setProperty('--bg-sidebar', colorHex);
-        StorageManager.set('sidebar_color', colorHex);
-    }
-
-    static updateIcon(theme) {
-        // Header Button
-        const btn = document.getElementById('theme-toggle-btn');
-        if (btn) {
-            btn.innerHTML = theme === 'dark'
-                ? '<span class="material-icons-round">light_mode</span>'
-                : '<span class="material-icons-round">dark_mode</span>';
-            btn.title = theme === 'dark' ? 'Aydınlık Mod' : 'Karanlık Mod';
-        }
-        // Settings Page Switch
-        const sw = document.getElementById('theme-switch');
-        if (sw) sw.checked = (theme === 'dark');
-    }
-}
+// --- Data Layer (Moved to libs/CoreManagers.js) ---
+// PathManager, StorageManager, BackupManager, AuthManager, ThemeManager are now loaded externally.
 
 class NoteManager {
     static getNotes() {
@@ -873,7 +317,7 @@ class FileManager {
     }
 
     static openFolder(subPath = '') {
-        if (typeof require === 'undefined') return;
+        if (!PathManager.isElectron() && typeof require === 'undefined') return;
         const { shell } = require('electron');
         const dir = this.getPath(subPath);
         this.ensureFolder(subPath);
@@ -881,11 +325,11 @@ class FileManager {
     }
 
     static openReportsFolder() {
-        if (typeof require === 'undefined') return;
+        if (!PathManager.isElectron() && typeof require === 'undefined') return;
         const { shell } = require('electron');
         // Kullanıcı isteği düzeltme: Raporlar alt klasörü yerine MufYard kök dizinini aç.
         const dir = PathManager.getRoot();
-        if (typeof require !== 'undefined') {
+        if (PathManager.isElectron() || typeof require !== 'undefined') {
             const fs = require('fs');
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         }
@@ -1133,48 +577,127 @@ class TemplateManager {
     }
 
     static async listTemplates() {
+        // BROWSER (GitHub Static List)
         if (typeof require === 'undefined') {
-            console.warn('TemplateManager: require is undefined (Browser Mode). Returning empty list.');
-            return [];
+            return [
+                'Genel Teftiş/1- Genel Teftiş Rapor Kapağı Taslağı.docx',
+                'Genel Teftiş/2- İl Müdürlüğü Genel Teftiş Raporu Taslağı.docx',
+                'Genel Teftiş/3- Merkez Birim Genel Teftiş Raporu Taslağı.docx',
+                'Genel Teftiş/4- Federasyon Genel Teftiş Raporu Taslağı.docx',
+                'İnceleme-Soruşturma/1- İnceleme-Soruşturma Rapor Kapağı Taslağı.docx',
+                'İnceleme-Soruşturma/2- İnceleme - Soruşturma Rapor Taslağı.docx',
+                'Ön İnceleme/1- Ön İnceleme Rapor Kapağı Taslağı.docx',
+                'Ön İnceleme/2- Ön İnceleme Raporu Taslağı.docx',
+                'Spor Kulüpleri/1- Kulüp İnceleme Rapor Kapağı Taslağı.docx',
+                'Spor Kulüpleri/2- Kulüp İnceleme Rapor Taslağı.docx',
+                'Spor Kulüpleri/Spor Kulüpleri Genel Denetim Raporu Taslağı01.09.2025.docx'
+            ];
         }
-        try {
-            // Ensure defaults are initialized before listing
-            await this.initializeDefaults();
 
+        // ELECTRON / NODE
+        try {
+            await this.initializeDefaults();
             await this.ensureFolder();
-            const path = require('path');
-            const fs = require('fs'); // Explicit require for safety
+            const { readdirSync, statSync, existsSync } = require('fs');
+            const { join, relative } = require('path');
 
             const templatesPath = this.getPath();
-            if (!fs.existsSync(templatesPath)) {
-                console.warn('TemplateManager: Templates folder does not exist.');
-                return [];
-            }
+            const reportsPath = join(templatesPath, 'Rapor Şablonları');
+            const searchPath = existsSync(reportsPath) ? reportsPath : templatesPath;
 
-            // Get all files recursively
-            const allFiles = this.getAllFiles(templatesPath);
-
-            // Filter and converting to relative paths
-            return allFiles
-                .filter(f => {
-                    if (!f) return false;
-                    const lower = f.toLowerCase();
-                    return (lower.endsWith('.html') || lower.endsWith('.txt') || lower.endsWith('.htm') || lower.endsWith('.doc') || lower.endsWith('.docx'));
-                })
-                .map(f => {
-                    // Return relative path
-                    return path.relative(templatesPath, f);
+            const getAllFiles = (dir, fileList = []) => {
+                if (!existsSync(dir)) return fileList;
+                const files = readdirSync(dir);
+                files.forEach(file => {
+                    if (file.startsWith('.') || file.startsWith('_')) return;
+                    const filePath = join(dir, file);
+                    if (statSync(filePath).isDirectory()) {
+                        getAllFiles(filePath, fileList);
+                    } else {
+                        fileList.push(filePath);
+                    }
                 });
+                return fileList;
+            };
+
+            const allFiles = getAllFiles(searchPath);
+            return allFiles
+                .filter(f => /\.(html|txt|htm|doc|docx)$/i.test(f))
+                .map(f => relative(searchPath, f));
 
         } catch (e) {
             console.error('Template list error:', e);
-            // Return empty array instead of throwing to prevent white screen crashes
             return [];
         }
     }
 
     static async generate(relativeTemplatePath, report) {
-        if (typeof require === 'undefined') return Toast.show('Masaüstü uygulaması gerekli.', 'warning');
+        // --- BROWSER ENVIRONMENT (GitHub Fetch & Download) ---
+        if (typeof require === 'undefined') {
+            try {
+                Toast.show('Şablon GitHub üzerinden indiriliyor...', 'info');
+
+                const GITHUB_BASE = 'https://raw.githubusercontent.com/syaprakli/muf-yard-desktop/main/Sablonlar/Rapor Şablonları/';
+                // Normalize slashes and Encode URI for special chars (İ, ş, spaces)
+                const normalizedPath = relativeTemplatePath.replace(/\\/g, '/');
+                const fetchUrl = GITHUB_BASE + encodeURI(normalizedPath);
+
+                console.log('Fetching Template:', fetchUrl);
+
+                const response = await fetch(fetchUrl);
+                if (!response.ok) throw new Error(`GitHub'dan dosya çekilemedi (${response.status})`);
+
+                const blob = await response.blob();
+                const ext = relativeTemplatePath.split('.').pop().toLowerCase();
+                let finalBlob = blob;
+
+                // TEXT/HTML Replace Logic (Only if text)
+                if (['html', 'txt', 'htm'].includes(ext)) {
+                    const text = await blob.text();
+                    const user = AuthManager.getUser();
+                    let content = text;
+
+                    const map = {
+                        '{RAPOR_KODU}': report.code || '',
+                        '{KONU}': report.title || '',
+                        '{BASLAMA_TARIHI}': report.startDate ? new Date(report.startDate).toLocaleDateString('tr-TR') : '',
+                        '{SURE}': report.duration || '',
+                        '{DURUM}': report.status || '',
+                        '{MURETTIP}': user ? user.fullname : (report.author || ''),
+                        '{BUGUN}': new Date().toLocaleDateString('tr-TR')
+                    };
+
+                    Object.keys(map).forEach(key => {
+                        content = content.split(key).join(map[key]);
+                    });
+
+                    finalBlob = new Blob([content], { type: 'text/html;charset=utf-8' });
+                }
+
+                // Trigger Download
+                const safeCode = (report.code || 'Rapor').replace(/[<>:"/\\|?*]/g, '_');
+                const filename = `Rapor_${safeCode}.${ext}`;
+
+                const url = window.URL.createObjectURL(finalBlob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                Toast.show('Rapor indirildi.', 'success');
+
+            } catch (e) {
+                console.error('Browser generate error:', e);
+                Toast.show('Hata: ' + e.message, 'error');
+            }
+            return;
+        }
+
+        // --- ELECTRON / NODE ENVIRONMENT (Original Logic) ---
         try {
             const fs = require('fs');
             const path = require('path');
@@ -1188,7 +711,7 @@ class TemplateManager {
 
             // Determine file extension and if it is binary
             const ext = path.extname(templatePath).toLowerCase();
-            const isBinary = (ext === '.doc' || ext === '.docx');
+            const isBinary = (ext === '.doc' || ext === '.docx' || ext === '.xlsx');
 
             let content;
             if (!isBinary) {
@@ -1849,6 +1372,16 @@ const UIManager = {
         document.getElementById('about-modal').style.display = 'flex';
     },
 
+    openAssistantSettings: () => {
+        document.getElementById('ai-settings-modal').style.display = 'flex';
+        UIManager.switchSettingsTab('modes');
+    },
+
+    openTrainingSettings: () => {
+        document.getElementById('ai-settings-modal').style.display = 'flex';
+        UIManager.switchSettingsTab('training');
+    },
+
     saveAIConfig: () => {
         const apiKey = document.getElementById('gemini-api-key').value.trim();
         const model = document.getElementById('gemini-model-select').value;
@@ -2336,13 +1869,15 @@ const UIManager = {
             <div id="checklist-${rep.id}" class="checklist-container" style="display:none; padding: 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                 <h5 style="margin-bottom:0.5rem; font-size:0.9rem; color:var(--text-secondary);">İş Adımları (${rep.code})</h5>
                 <div class="checklist-items" id="items-${rep.id}">
-                    ${(rep.checklist || []).map(item => `
-                        <div class="checklist-item" style="display:flex; align-items:center; margin-bottom:0.5rem;">
-                            <input type="checkbox" ${item.completed ? 'checked' : ''} onchange="UIManager.toggleChk(${rep.id}, ${item.id})" style="margin-right:0.5rem;">
-                            <span style="flex:1; text-decoration: ${item.completed ? 'line-through' : 'none'}; opacity:${item.completed ? 0.6 : 1}">${item.text}</span>
-                             <button class="btn-icon" onclick="UIManager.deleteChk(${rep.id}, ${item.id})" style="color:var(--danger); font-size:0.9rem;"><span class="material-icons-round">close</span></button>
-                        </div>
-                    `).join('')}
+                            ${(rep.checklist || []).map(item => `
+                                <div class="checklist-item" style="display:flex; align-items:center; margin-bottom:0.5rem;">
+                                    <label style="display:flex; align-items:center; cursor:pointer; flex:1;">
+                                        <input type="checkbox" ${item.completed ? 'checked' : ''} onchange="UIManager.toggleChk(${rep.id}, ${item.id})" style="margin-right:0.5rem;">
+                                        <span style="flex:1; text-decoration: ${item.completed ? 'line-through' : 'none'}; opacity:${item.completed ? 0.6 : 1}">${item.text}</span>
+                                    </label>
+                                    <button class="btn-icon" onclick="UIManager.deleteChk(${rep.id}, ${item.id})" style="color:var(--text-secondary); font-size:0.9rem;"><span class="material-icons-round">close</span></button>
+                                </div>
+                            `).join('')}
                 </div>
                 <div class="checklist-input" style="display:flex; gap:0.5rem; margin-top:0.5rem;">
                     <input type="text" id="chk-input-${rep.id}" placeholder="Yeni adım ekle..." style="flex:1; padding:0.4rem; border:1px solid #cbd5e1; border-radius:4px; font-size:0.9rem;">
@@ -2472,12 +2007,28 @@ const UIManager = {
 
                 const fullPath = FolderManager.getFolderForReport(rep);
 
+                // Klasörün varlığından emin ol (Electron ise)
+                if (PathManager.isElectron()) {
+                    FolderManager.createReportFolder(rep);
+                }
+
                 if (window.electronAPI) {
-                    window.electronAPI.openFolder(fullPath);
-                } else if (typeof require !== 'undefined') {
-                    require('electron').ipcRenderer.invoke('folder:open', fullPath);
+                    window.electronAPI.openFolder(fullPath).then(res => {
+                        if (res && !res.success) Toast.show(res.error, 'error');
+                    });
+                } else if (PathManager.isElectron() || typeof require !== 'undefined') {
+                    try {
+                        require('electron').ipcRenderer.invoke('folder:open', fullPath).then(res => {
+                            if (res && !res.success) Toast.show(res.error, 'error');
+                        });
+                    } catch (err) {
+                        navigator.clipboard.writeText(fullPath);
+                        Toast.show('Masaüstü bağlantısı kurulamadı. Yol kopyalandı.', 'warning');
+                    }
                 } else {
-                    navigator.clipboard.writeText(fullPath).then(() => alert('Klasör yolu kopyalandı:\n' + fullPath));
+                    navigator.clipboard.writeText(fullPath).then(() => {
+                        Toast.show('Klasör açma sadece masaüstü uygulamasında çalışır.\nYol panoya kopyalandı.', 'info');
+                    });
                 }
             });
         });
@@ -2978,7 +2529,14 @@ const UIManager = {
         }
     },
 
-    initFilesView: (currentPath = '') => {
+    initFilesView: (currentPath = null) => {
+        // Persistence: if no path provided, try to load last path
+        if (currentPath === null) {
+            currentPath = StorageManager.get('lastFilesPath', '');
+        }
+        // Save for next time
+        StorageManager.set('lastFilesPath', currentPath);
+
         const container = document.getElementById('content-area');
 
         let items = [];
@@ -3011,7 +2569,7 @@ const UIManager = {
 
         let html = `
         <div class="section-container">
-            <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+            <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem;">
                 <div style="display:flex; align-items:center; gap:0.5rem; overflow:hidden;">
                     ${backButton}
                     <div class="breadcrumbs" style="font-size:1.1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -3024,6 +2582,24 @@ const UIManager = {
                     </button>
                     <button class="btn btn-primary" id="upload-file-btn">
                         <span class="material-icons-round">upload_file</span> Yükle
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const absolutePath = FileManager.getPath(currentPath);
+        html += `
+            <div class="path-info-bar" style="margin-top:-0.5rem; margin-bottom:1.5rem; padding:0.6rem 0.75rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:var(--text-secondary);">
+                <div style="display:flex; align-items:center; gap:0.5rem; overflow:hidden;">
+                    <span class="material-icons-round" style="font-size:1.1rem; color:var(--primary-color); opacity:0.7;">folder</span>
+                    <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family: monospace;" title="${absolutePath}">${absolutePath}</span>
+                </div>
+                <div style="display:flex; gap:0.4rem;">
+                    <button class="btn-icon" onclick="FileManager.openFolder('${currentPath.replace(/\\/g, '\\\\')}')" style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; color:var(--primary-color);" title="Klasörü Aç">
+                        <span class="material-icons-round" style="font-size:1.1rem;">folder_open</span>
+                    </button>
+                    <button class="btn-icon" onclick="navigator.clipboard.writeText('${absolutePath.replace(/\\/g, '\\\\')}').then(() => Toast.show('Yol kopyalandı', 'success'))" style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; color:var(--primary-color);" title="Tam Yolu Kopyala">
+                        <span class="material-icons-round" style="font-size:1.1rem;">content_copy</span>
                     </button>
                 </div>
             </div>
@@ -3168,46 +2744,52 @@ const UIManager = {
 
     initAssistantView: function () {
         const assistantView = document.getElementById('view-assistant');
-        // const contentArea = document.getElementById('content-area'); // No longer needed for moving
+        if (!assistantView) return;
 
-        // Check if already initialized (simple check: header exists?)
-        if (assistantView.querySelector('.assistant-header')) {
+        const chatContainer = assistantView.querySelector('.chat-container');
+        if (!chatContainer) return;
+
+        // Check if already initialized inside container
+        if (chatContainer.querySelector('.assistant-header')) {
             console.log('Assistant view already initialized, restoring...');
             return;
         }
 
         const header = `
-            <div class="assistant-header">
-                <div style="display:flex; align-items:center; gap:0.5rem;">
-                    <span class="material-icons-round" style="color:#60a5fa;">smart_toy</span>
-                    <h3 style="margin:0;">Dijital Müfettiş Asistanı</h3>
+            <div class="assistant-header" style="background:#fff; padding:1rem 1.5rem; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <div style="width:40px; height:40px; background:linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#2563eb; box-shadow:0 2px 4px rgba(37,99,235,0.1);">
+                         <span class="material-icons-round" style="font-size:24px;">smart_toy</span>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:1.1rem; color:var(--text-main); font-weight:600;">Dijital Müfettiş Yardımcısı</h3>
+                        <span style="font-size:0.75rem; color:var(--text-secondary);">Size nasıl yardımcı olabilirim?</span>
+                    </div>
                 </div>
-                <button class="btn btn-outline" id="btn-assistant-settings" 
-                        onclick="UIManager.openAssistantSettings()" title="Gelişmiş Ayarlar">
-                    <span class="material-icons-round">settings_suggest</span>
-                </button>
-            </div >
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn btn-outline" onclick="FileManager.openFolder(AIService.getContextDirPath())" title="Eğitim Klasörünü Aç" style="height:36px; padding:0 0.8rem; border-radius:8px; border:1px solid #e2e8f0; display:flex; align-items:center; gap:0.4rem; color:var(--text-secondary);">
+                        <span class="material-icons-round" style="font-size:20px;">folder_open</span>
+                    </button>
+                    <button class="btn btn-outline" onclick="UIManager.openTrainingSettings()" title="Veri Yükle ve Eğit" style="height:36px; padding:0 0.8rem; border-radius:8px; border:1px solid #e2e8f0; display:flex; align-items:center; gap:0.4rem; color:var(--text-secondary);">
+                        <span class="material-icons-round" style="font-size:20px;">cloud_upload</span>
+                        <span style="font-weight:500; font-size:0.9rem;">Eğit</span>
+                    </button>
+                    <button class="btn btn-icon" onclick="UIManager.openAssistantSettings()" title="Ayarlar" style="width:36px; height:36px; border-radius:8px; border:1px solid #e2e8f0;">
+                         <span class="material-icons-round" style="font-size:20px; color:#64748b;">settings</span>
+                    </button>
+                </div>
+            </div>
     `;
 
-        // Render View contents (Appends to existing structure if needed, or rewrites inner)
-        // Since we have static structure in HTML, we might just want to prepend Header if missing
-        // or ensure structure is correct.
-
-        // The HTML already has chat-container etc. We just need to inject the Header 
-        // OR reuse the existing structure and just make sure it's valid.
-
-        // Current Static HTML:
-        // <div id="view-assistant" ...> <div class="chat-container"> ... </div> </div>
-
-        // We want to insert the header at the top.
-        assistantView.innerHTML = header + assistantView.innerHTML;
+        // Insert INSIDE the box, at the top
+        chatContainer.insertAdjacentHTML('afterbegin', header);
 
         // Ensure system message if empty
         const msgs = document.getElementById('chat-messages');
         if (msgs && msgs.children.length === 0) {
             msgs.innerHTML = `
              <div class="chat-message system">
-                "Dijital Müfettiş Asistanı"na hoş geldiniz. Size mevzuat, raporlama veya diğer konularda yardımcı olabilirim.
+                "Dijital Müfettiş Yardımcısı" sizi dinliyor. Mevzuat, rapor formatları veya analizler konusunda destek alabilirsiniz.
             </div>`;
         }
     },
@@ -3341,27 +2923,163 @@ const UIManager = {
     },
 
     // Training UI (Simple Handling for Text Files)
+    // Training UI (Handling Text, PDF, DOCX)
     handleTrainingUpload: function (input) {
-        Array.from(input.files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const content = e.target.result;
-                // Add to AI Context
-                AIService.addContextFile({
-                    name: file.name,
-                    content: content,
-                    type: file.type
-                });
-                this.renderTrainingList();
-            };
+        if (!input.files || input.files.length === 0) return;
 
-            // Basic text reading, binary PDF parsing would require a library like pdf.js
-            if (file.type.includes('text') || file.name.endsWith('.md')) {
-                reader.readAsText(file);
-            } else {
-                showToast(`Şimdilik sadece metin dosyaları destekleniyor: ${file.name} `, 'warning');
+        const files = Array.from(input.files);
+
+        files.forEach(async (file) => {
+            const fileType = file.name.split('.').pop().toLowerCase();
+            Toast.show(`${file.name} işleniyor...`, 'info');
+
+            try {
+                let content = '';
+                let type = 'text/plain';
+
+                if (fileType === 'pdf') {
+                    // PDF.js Implementation
+                    if (typeof pdfjsLib === 'undefined') {
+                        throw new Error('PDF okuyucu (pdf.js) yüklenemedi. İnternet bağlantınızı kontrol edin.');
+                    }
+
+                    // Worker Configuration
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+                    console.log('Reading PDF with pdf.js...');
+
+                    // Read file as ArrayBuffer using FileReader (Browser native)
+                    const arrayBuffer = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = (e) => reject(e);
+                        reader.readAsArrayBuffer(file);
+                    });
+
+                    // Parse PDF
+                    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                    const pdf = await loadingTask.promise;
+
+                    console.log(`PDF Loaded: ${pdf.numPages} pages.`);
+
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        fullText += pageText + '\n\n';
+                    }
+
+                    content = fullText;
+                    type = 'application/pdf';
+
+                } else if (fileType === 'docx') {
+                    if (typeof require !== 'undefined') {
+                        try {
+                            const mammoth = require('mammoth');
+                            let result;
+
+                            if (file.path) {
+                                console.log('Reading DOCX from path:', file.path);
+                                result = await mammoth.extractRawText({ path: file.path });
+                            } else {
+                                console.log('Reading DOCX from memory buffer...');
+                                const arrayBuffer = await new Promise((resolve, reject) => {
+                                    const reader = new FileReader();
+                                    reader.onload = () => resolve(reader.result);
+                                    reader.onerror = (e) => reject(e);
+                                    reader.readAsArrayBuffer(file);
+                                });
+                                result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                            }
+
+                            content = result.value;
+                            type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                        } catch (libErr) {
+                            console.error(libErr);
+                            throw new Error('DOCX kütüphanesi hatası: ' + libErr.message);
+                        }
+                    } else {
+                        throw new Error('DOCX okuma için masaüstü (Electron) modu gereklidir.');
+                    }
+                } else if (fileType === 'doc') {
+                    throw new Error('Eski Word (.doc) formatı desteklenmiyor. Lütfen dosyanızı .docx olarak kaydedip tekrar yükleyin.');
+                } else if (['xls', 'xlsx', 'csv'].includes(fileType)) {
+                    // EXCEL SUPPORT
+                    if (typeof XLSX === 'undefined') {
+                        throw new Error('Excel okuyucu (SheetJS) yüklenemedi. İnternet bağlantınızı kontrol edin.');
+                    }
+                    console.log('Reading Excel/CSV...');
+                    const data = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve(new Uint8Array(e.target.result));
+                        reader.onerror = (e) => reject(e);
+                        reader.readAsArrayBuffer(file);
+                    });
+
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    // Convert to CSV text
+                    content = XLSX.utils.sheet_to_csv(worksheet);
+                    type = fileType === 'csv' ? 'text/csv' : 'application/vnd.ms-excel';
+
+                } else if (['png', 'jpg', 'jpeg', 'bmp'].includes(fileType)) {
+                    // IMAGE OCR SUPPORT
+                    if (typeof Tesseract === 'undefined') {
+                        throw new Error('OCR motoru (Tesseract.js) yüklenemedi. İnternet bağlantınızı kontrol edin.');
+                    }
+                    console.log('Starting OCR for image...');
+                    Toast.show(`${file.name} için metin taranıyor (OCR)...`, 'info');
+
+                    const { data: { text } } = await Tesseract.recognize(
+                        file,
+                        'tur', // Turkish language code
+                        { logger: m => console.log(m) }
+                    );
+                    content = text;
+                    type = file.type || 'image/png';
+
+                } else if (['txt', 'md', 'js', 'html', 'css', 'json', 'xml'].includes(fileType)) {
+                    // Text-based files
+                    content = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.onerror = (e) => reject(e);
+                        reader.readAsText(file);
+                    });
+                    type = file.type || 'text/plain';
+                } else {
+                    Toast.show(`Desteklenmeyen dosya türü: ${file.name}`, 'warning');
+                    return;
+                }
+
+                if (content && content.trim().length > 0) {
+                    // Add to AI Context
+                    const success = AIService.addContextFile({
+                        name: file.name,
+                        content: content,
+                        type: type
+                    });
+
+                    if (success) {
+                        Toast.show(`${file.name} eklendi.`, 'success');
+                    } else {
+                        Toast.show(`${file.name} zaten ekli.`, 'info');
+                    }
+
+                    this.renderTrainingList();
+
+                } else {
+                    Toast.show(`${file.name} içinde okunabilir metin bulunamadı.`, 'warning');
+                }
+
+            } catch (err) {
+                console.error('File Read Error:', err);
+                Toast.show(`Dosya hatası (${file.name}): ${err.message}`, 'error');
             }
         });
+
         input.value = ''; // Reset
     },
 
@@ -3372,15 +3090,25 @@ const UIManager = {
         AIService.config.contextFiles.forEach(file => {
             const item = document.createElement('div');
             item.className = 'file-list-item';
+
+            // Format size
+            const sizeInKb = (file.size / 1024).toFixed(1);
+            const sizeStr = file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(1) + ' MB' : sizeInKb + ' KB';
+
             item.innerHTML = `
-            <div class="file-icon"><span class="material-icons-round">description</span></div>
+            <div class="file-icon" style="background:#f0f9ff; color:#0369a1;"><span class="material-icons-round">description</span></div>
                 <div class="file-info">
-                    <div class="file-name">${file.name}</div>
-                    <div class="file-size">${(file.content.length / 1024).toFixed(1)} KB (Text)</div>
+                    <div class="file-name" style="font-weight:500; font-size:0.9rem;">${file.name}</div>
+                    <div class="file-size" style="font-size:0.75rem; color:#64748b;">${sizeStr} (Metin)</div>
                 </div>
-                <button class="btn-icon" onclick="AIService.deleteContextFile('${file.name}'); UIManager.renderTrainingList();">
-                    <span class="material-icons-round">delete</span>
-                </button>
+                <div style="display:flex; gap:0.25rem;">
+                    <button class="btn-icon" onclick="FileManager.openFolder(AIService.getContextDirPath())" title="Klasörde Göster">
+                        <span class="material-icons-round">folder</span>
+                    </button>
+                    <button class="btn-icon" onclick="AIService.deleteContextFile('${file.name}'); UIManager.renderTrainingList();" style="color:#ef4444;">
+                        <span class="material-icons-round">delete</span>
+                    </button>
+                </div>
 `;
             list.appendChild(item);
         });
@@ -4174,17 +3902,19 @@ const UIManager = {
         }
 
         return `
-            <div class="task-item ${task.completed ? 'completed' : ''} priority-${task.priority || 'normal'}" style="margin-bottom:0.5rem;">
-                <div class="task-checkbox-wrapper">
-                    <input type="checkbox" 
-                        ${task.completed ? 'checked' : ''} 
-                        onchange="TaskManager.toggleTask(${task.id})">
-                </div>
-                <div class="task-content" style="flex:1; display:flex; align-items:center;">
-                    <span class="task-text">${task.text || task.content || 'İsimsiz Görev'}</span>
-                    ${badgesHtml}
-                </div>
-                <button class="delete-btn" onclick="TaskManager.deleteTask(${task.id})" title="Sil" style="background:none; border:none; color:var(--text-secondary); cursor:pointer;">
+            <div class="task-item ${task.completed ? 'completed' : ''} priority-${task.priority || 'normal'}" style="margin-bottom:0.5rem; padding:0;">
+                <label style="flex:1; display:flex; align-items:center; padding:1rem; cursor:pointer;">
+                    <div class="task-checkbox-wrapper" style="pointer-events:none;">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''}>
+                    </div>
+                    <div class="task-content" style="flex:1; display:flex; align-items:center; margin-left:1rem;">
+                        <span class="task-text">${task.text || task.content || 'İsimsiz Görev'}</span>
+                        ${badgesHtml}
+                    </div>
+                    <!-- Hidden checkbox to trigger the change -->
+                    <input type="checkbox" style="display:none;" onchange="TaskManager.toggleTask(${task.id})">
+                </label>
+                 <button class="delete-btn" onclick="TaskManager.deleteTask(${task.id})" title="Sil" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; padding:1rem;">
                     <span class="material-icons-round" style="font-size:1.2rem;">close</span>
                 </button>
             </div>
@@ -4341,48 +4071,6 @@ const UIManager = {
             });
         }
 
-        // Pie Chart (Report Types)
-        const typesMap = {};
-        reports.forEach(r => {
-            const t = r.type || 'Diğer';
-            typesMap[t] = (typesMap[t] || 0) + 1;
-        });
-
-        // Convert keys to readable
-        const typeLabelsMap = {
-            'inceleme': 'İnceleme',
-            'sorusturma': 'Soruşturma',
-            'genel-denetim': 'Genel Denetim',
-            'ozel-denetim': 'Özel Denetim',
-            'on-inceleme': 'Ön İnceleme',
-            'on-arastirma': 'Ön Araştırma'
-        };
-
-        const typeLabels = Object.keys(typesMap).map(k => typeLabelsMap[k] || k);
-        const typeData = Object.values(typesMap);
-
-        const ctxTypes = document.getElementById('chart-types');
-        if (ctxTypes) {
-            new Chart(ctxTypes, {
-                type: 'pie',
-                data: {
-                    labels: typeLabels,
-                    datasets: [{
-                        data: typeData,
-                        backgroundColor: [
-                            '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6366f1'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom' }
-                    }
-                }
-            });
-        }
 
         // Doughnut Chart (Writing Status - NEW)
         const statusMap = {};
@@ -4432,11 +4120,29 @@ const UIManager = {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'bottom' }
-                    }
+                        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } }
+                    },
+                    cutout: '65%'
                 }
             });
         }
+
+        // Pie Chart (Report Types)
+        const typesMap = {};
+        reports.forEach(r => {
+            const t = r.type || 'Diğer';
+            typesMap[t] = (typesMap[t] || 0) + 1;
+        });
+
+        // Convert keys to readable
+        const typeLabelsMap = {
+            'inceleme': 'İnceleme',
+            'sorusturma': 'Soruşturma',
+            'genel-denetim': 'Genel Denetim',
+            'ozel-denetim': 'Özel Denetim',
+            'on-inceleme': 'Ön İnceleme',
+            'on-arastirma': 'Ön Araştırma'
+        };
 
         const pieLabels = Object.keys(typesMap).map(k => typeLabelsMap[k] || k);
         const pieData = Object.values(typesMap);
@@ -4901,9 +4607,25 @@ const CorporateContactsManager = {
                     // --- BROWSER ENVIRONMENT ---
                 } else {
                     console.log('Browser ortamı: Dosya fetch ediliyor...');
-                    const response = await fetch('Telefon_Rehberi/RDB_PERSONEL_TELEFON.xlsx');
+
+                    // GitHub Raw URL (Primary for Web)
+                    const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/syaprakli/muf-yard-desktop/main/Telefon_Rehberi/RDB_PERSONEL_TELEFON.xlsx';
+                    let response;
+
+                    try {
+                        response = await fetch(GITHUB_RAW_URL);
+                    } catch (e) {
+                        console.warn('GitHub fetch error, trying local fallback...', e);
+                    }
+
+                    if (!response || !response.ok) {
+                        console.warn('GitHub fetch failed, trying local fallback...');
+                        // Local Fallback (Relative path)
+                        response = await fetch('Telefon_Rehberi/RDB_PERSONEL_TELEFON.xlsx');
+                    }
+
                     if (!response.ok) {
-                        throw new Error(`Dosya indirilemedi(Status: ${response.status})`);
+                        throw new Error(`Dosya indirilemedi (GitHub & Local) - Status: ${response.status}`);
                     }
                     fileBuffer = await response.arrayBuffer();
                 }
@@ -5227,7 +4949,7 @@ function initApp() {
     // Start Reminder Loop
     if ("Notification" in window) {
         if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
+            // Notification request removed per user feedback
         }
 
         // Check every minute
@@ -5319,6 +5041,13 @@ function handleViewChange(viewName) {
         if (assistantView) {
             assistantView.style.display = 'block';
             UIManager.initAssistantView(); // Ensure init/update
+        }
+    } else if (viewName === 'audit') {
+        // Special Case: Audit Manager (renders its own view)
+        if (typeof AuditManager !== 'undefined') {
+            AuditManager.initView();
+        } else {
+            contentArea.innerHTML = '<div class="empty-state">Denetim modülü yüklenemedi via AuditManager.</div>';
         }
     }
     else if (contentArea) {
@@ -5626,7 +5355,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Request Notification Permission
     if ("Notification" in window) {
-        Notification.requestPermission();
+        // Notification request removed per user feedback
     }
 
     // Start Reminder Loop (Every 60sec)
@@ -5687,10 +5416,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- Global Exports (for HTML access) ---
 if (typeof window !== 'undefined') {
-    window.PathManager = PathManager;
-    window.StorageManager = StorageManager;
-    window.BackupManager = BackupManager;
-    window.ThemeManager = ThemeManager;
+    // Managers below are exported by CoreManagers.js
+    // window.PathManager = PathManager;
+    // window.StorageManager = StorageManager;
+    // window.BackupManager = BackupManager;
+    // window.ThemeManager = ThemeManager;
     window.NoteManager = NoteManager;
     window.ContactsManager = ContactsManager;
     window.FolderManager = FolderManager;
@@ -5702,7 +5432,7 @@ if (typeof window !== 'undefined') {
     window.TaskManager = TaskManager;
     window.CorporateContactsManager = CorporateContactsManager;
     window.SettingsManager = SettingsManager;
-    window.AuthManager = AuthManager;
+    // window.AuthManager = AuthManager;
     window.UIManager = UIManager;
     window.AssistantManager = AssistantManager;
     window.initApp = initApp;
@@ -5713,6 +5443,7 @@ if (typeof window !== 'undefined') {
     window.initDashboardCharts = UIManager.initDashboardCharts;
     window.updateDateDisplay = updateDateDisplay;
     window.setupNavigation = setupNavigation;
-    window.AuditManager = AuditManager_Legacy;
+    // window.AuditManager = AuditManager_Legacy; // Legacy removed
 }
+
 

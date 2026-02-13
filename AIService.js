@@ -6,7 +6,7 @@ const AIService = {
         activeModeId: 'default_1',
         responseLength: 'detailed', // 'short' or 'detailed'
         customRules: [], // Array of strings
-        contextFiles: [], // Array of {name, content, type}
+        contextFiles: [], // Array of {name, type, size} (Content moved to disk)
         modes: [
             {
                 id: 'default_1',
@@ -31,10 +31,74 @@ const AIService = {
         if (savedConfig) {
             AIService.config = { ...AIService.config, ...JSON.parse(savedConfig) };
         }
+        AIService.ensureContextFolder();
+        AIService.migrateToFiles();
+    },
+
+    migrateToFiles: () => {
+        // Find files that still have 'content' (old format)
+        let needsSave = false;
+        if (typeof require !== 'undefined') {
+            const fs = require('fs');
+            const path = require('path');
+            const dir = AIService.getContextDirPath();
+
+            AIService.config.contextFiles.forEach(file => {
+                if (file.content) {
+                    console.log('Migrating file to disk:', file.name);
+                    const filePath = path.join(dir, file.name + '.txt');
+                    try {
+                        if (!fs.existsSync(filePath)) {
+                            fs.writeFileSync(filePath, file.content, 'utf8');
+                        }
+                        // Update metadata and remove heavy content
+                        file.size = file.content.length;
+                        delete file.content;
+                        needsSave = true;
+                    } catch (e) {
+                        console.error('Migration failed for:', file.name, e);
+                    }
+                }
+            });
+
+            if (needsSave) {
+                console.log('AI Context migration complete. Saving config...');
+                AIService.saveConfig();
+            }
+        }
     },
 
     saveConfig: () => {
-        localStorage.setItem('ai_config', JSON.stringify(AIService.config));
+        try {
+            localStorage.setItem('ai_config', JSON.stringify(AIService.config));
+        } catch (e) {
+            console.error('Save Config Error (LocalStorage full?):', e);
+            if (e.name === 'QuotaExceededError') {
+                Toast.show('Ayarlar kaydedilemedi (Hafıza dolu). Lütfen bazı eğitim dosyalarını silin.', 'error');
+            }
+        }
+    },
+
+    // --- FileSystem Management ---
+    getContextDirPath: () => {
+        if (typeof PathManager !== 'undefined') {
+            return PathManager.join('AI_Context');
+        }
+        return 'AI_Context';
+    },
+
+    ensureContextFolder: () => {
+        if (typeof require !== 'undefined') {
+            try {
+                const fs = require('fs');
+                const dir = AIService.getContextDirPath();
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir, { recursive: true });
+                }
+            } catch (e) {
+                console.error('Ensure Context Folder Error:', e);
+            }
+        }
     },
 
     // --- Mode Management ---
@@ -79,21 +143,61 @@ const AIService = {
     // --- Training Data (Context) ---
     addContextFile: (fileObj) => {
         // fileObj: { name: 'law.txt', content: '...', type: 'text/plain' }
+        AIService.ensureContextFolder();
+
         // Check duplicate
         if (!AIService.config.contextFiles.find(f => f.name === fileObj.name)) {
-            AIService.config.contextFiles.push(fileObj);
-            AIService.saveConfig();
-            return true;
+            if (typeof require !== 'undefined') {
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const filePath = path.join(AIService.getContextDirPath(), fileObj.name + '.txt');
+
+                    fs.writeFileSync(filePath, fileObj.content, 'utf8');
+
+                    // Store only metadata in config
+                    AIService.config.contextFiles.push({
+                        name: fileObj.name,
+                        type: fileObj.type,
+                        size: fileObj.content.length
+                    });
+
+                    AIService.saveConfig();
+                    return true;
+                } catch (e) {
+                    console.error('Add Context File Error:', e);
+                    Toast.show('Dosya kaydedilemedi: ' + e.message, 'error');
+                    return false;
+                }
+            } else {
+                // Fallback for non-electron (rarely used now)
+                AIService.config.contextFiles.push(fileObj);
+                AIService.saveConfig();
+                return true;
+            }
         }
         return false;
     },
 
     deleteContextFile: (fileName) => {
         AIService.config.contextFiles = AIService.config.contextFiles.filter(f => f.name !== fileName);
+        if (typeof require !== 'undefined') {
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const filePath = path.join(AIService.getContextDirPath(), fileName + '.txt');
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            } catch (e) {
+                console.error('Delete Context File Error:', e);
+            }
+        }
         AIService.saveConfig();
     },
 
     clearAllContext: () => {
+        AIService.config.contextFiles.forEach(f => AIService.deleteContextFile(f.name));
         AIService.config.contextFiles = [];
         AIService.saveConfig();
     },
@@ -141,20 +245,37 @@ const AIService = {
             systemPrompt += "\n";
         }
 
-        // Training Context
+        // Training Context (Read from Disk)
         if (AIService.config.contextFiles.length > 0) {
             systemPrompt += "EĞİTİM VERİLERİ (Cevap verirken bu bilgileri kullan):\n";
-            AIService.config.contextFiles.forEach(f => {
-                systemPrompt += `--- DOSYA: ${f.name} ---\n${f.content.substring(0, 10000)}...\n----------------\n`;
-                // Note: Truncated for token limit safety in this demo, ideal is RAG or full context if small.
-            });
+
+            if (typeof require !== 'undefined') {
+                const fs = require('fs');
+                const path = require('path');
+                const dir = AIService.getContextDirPath();
+
+                AIService.config.contextFiles.forEach(f => {
+                    const filePath = path.join(dir, f.name + '.txt');
+                    if (fs.existsSync(filePath)) {
+                        try {
+                            const content = fs.readFileSync(filePath, 'utf8');
+                            systemPrompt += `--- DOSYA: ${f.name} ---\n${content.substring(0, 15000)}\n----------------\n`;
+                            // Slightly increased limit as we are not stringifying the whole object into localStorage anymore
+                        } catch (readErr) {
+                            console.error('Read Training File Error:', readErr);
+                        }
+                    }
+                });
+            } else {
+                // Fallback for non-electron
+                AIService.config.contextFiles.forEach(f => {
+                    if (f.content) {
+                        systemPrompt += `--- DOSYA: ${f.name} ---\n${f.content.substring(0, 5000)}...\n----------------\n`;
+                    }
+                });
+            }
             systemPrompt += "\n";
         }
-
-        // 2. Prepare Payload
-        // We prepend system prompt to the first message or send as system_instruction if supported via REST, 
-        // but for simplicity via simple fetch, we can prepend it to the user message or history.
-        // Better approach: Prepend to history as a 'model' or 'user' instruction.
 
         const contents = [];
 

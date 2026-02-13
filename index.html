@@ -4,8 +4,23 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com;">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com https://www.gstatic.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://www.gstatic.com https://cdn.jsdelivr.net;">
+    <script>
+        (function () {
+            var w = window.screen.width;
+            var meta = document.createElement('meta');
+            meta.name = 'viewport';
+            // Phone (< 768px): Force Desktop Mode (1280px)
+            if (w < 768) {
+                meta.content = 'width=1280, user-scalable=yes';
+            }
+            // Tablet & Desktop (>= 768px): Use Responsive Mode
+            else {
+                meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes';
+            }
+            document.head.appendChild(meta);
+        })();
+    </script>
     <title>Müf.Yard</title>
     <title>Müf.Yard</title>
     <!-- Google Fonts: Inter for clean, modern look -->
@@ -43,6 +58,17 @@
     </script>
 
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/audit.css">
+    <link rel="stylesheet" href="libs/responsive.css">
+    <!-- Audit Manager (New Module) -->
+    <script src="audit_manager_new.js"></script>
+
+    <!-- Firebase SDK & Config -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="libs/firebase-config.js"></script>
 </head>
 
 <body>
@@ -67,6 +93,10 @@
                 <button class="nav-item" data-view="reports">
                     <span class="material-icons-round">description</span>
                     <span>Görevler</span>
+                </button>
+                <button class="nav-item" data-view="audit" style="color:var(--accent-color);">
+                    <span class="material-icons-round">fact_check</span>
+                    <span>Denetim</span>
                 </button>
 
                 <button class="nav-item" data-view="tasks">
@@ -104,34 +134,34 @@
                 <h5
                     style="font-size:0.7rem; color:rgba(255,255,255,0.5); padding-left:0.75rem; text-transform:uppercase; margin-bottom:0.5rem;">
                     Hızlı Erişim</h5>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.25rem;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:2px;">
                     <a href="https://www.mevzuat.gov.tr" target="_blank" class="nav-item"
-                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        style="text-decoration:none; padding:0.3rem 0.25rem; font-size:0.7rem; justify-content: start;">
                         <span class="material-icons-round" style="font-size:1rem;">gavel</span>
                         <span>Mevzuat</span>
                     </a>
                     <a href="https://gsb.gov.tr/tr/sayfa/36-mevzuat#!" target="_blank" class="nav-item"
-                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        style="text-decoration:none; padding:0.3rem 0.25rem; font-size:0.7rem; justify-content: start;">
                         <span class="material-icons-round" style="font-size:1rem;">account_balance</span>
                         <span>GSB Mevzuat</span>
                     </a>
                     <a href="https://belgenet.gsb.gov.tr/" target="_blank" class="nav-item"
-                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        style="text-decoration:none; padding:0.3rem 0.25rem; font-size:0.7rem; justify-content: start;">
                         <span class="material-icons-round" style="font-size:1rem;">folder_shared</span>
                         <span>EBYS</span>
                     </a>
                     <a href="https://www.resmigazete.gov.tr" target="_blank" class="nav-item"
-                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        style="text-decoration:none; padding:0.3rem 0.25rem; font-size:0.7rem; justify-content: start;">
                         <span class="material-icons-round" style="font-size:1rem;">article</span>
                         <span>Resmi Gazete</span>
                     </a>
                     <a href="https://eposta.gsb.gov.tr/" target="_blank" class="nav-item"
-                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        style="text-decoration:none; padding:0.3rem 0.25rem; font-size:0.7rem; justify-content: start;">
                         <span class="material-icons-round" style="font-size:1rem;">email</span>
                         <span>E-Posta</span>
                     </a>
                     <a href="https://kurumsal.gsb.gov.tr/login" target="_blank" class="nav-item"
-                        style="text-decoration:none; padding:0.4rem 0.5rem; font-size:0.75rem;">
+                        style="text-decoration:none; padding:0.3rem 0.25rem; font-size:0.7rem; justify-content: start;">
                         <span class="material-icons-round" style="font-size:1rem;">login</span>
                         <span>Kurumsal</span>
                     </a>
@@ -323,9 +353,14 @@
                         </button>
                     </div>
 
-                    <button class="btn btn-primary" style="width:100%;" onclick="AuthManager.showScreen('register')">
-                        Okudum, Kuruluma Başla
-                    </button>
+                    <div style="display:flex; gap:1rem; margin-top:1.5rem;">
+                        <button class="btn btn-primary" style="flex:1;" onclick="AuthManager.showScreen('register')">
+                            Kayıt Ol
+                        </button>
+                        <button class="btn btn-outline" style="flex:1;" onclick="AuthManager.showScreen('login')">
+                            Giriş Yap
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 1. Kayıt / Kurulum Ekranı -->
@@ -339,8 +374,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Kullanıcı Adı</label>
-                        <input type="text" id="reg-username" placeholder="Giriş için kullanılacak">
+                        <label>E-Posta Adresi</label>
+                        <input type="email" id="reg-email" placeholder="mail@ornek.com">
                     </div>
 
                     <div class="form-group">
@@ -358,10 +393,21 @@
                         <input type="text" id="reg-answer" placeholder="Cevabınız">
                     </div>
 
+                    <!-- Güvenlik sorusu Firebase Auth ile opsiyonel hale getirildi -->
+
                     <button class="btn btn-primary" style="width:100%; margin-top:1rem;"
                         onclick="AuthManager.register()">
                         Kurulumu Tamamla
                     </button>
+
+                    <div style="margin-top:1rem; text-align:center;">
+                        <p class="text-xs" style="color:var(--text-secondary);">
+                            Zaten hesabınız mı var?
+                            <a href="#" onclick="AuthManager.showScreen('login')"
+                                style="color:var(--primary-color); text-decoration:none; font-weight:600;">Giriş
+                                Yapın</a>
+                        </p>
+                    </div>
                 </div>
 
                 <!-- 2. Giriş Ekranı -->
@@ -371,13 +417,20 @@
                         şifrenizi girin.</p>
 
                     <div class="form-group">
-                        <label>Kullanıcı Adı</label>
-                        <input type="text" id="login-username">
+                        <label>E-Posta Adresi</label>
+                        <input type="email" id="login-email">
                     </div>
 
                     <div class="form-group" style="margin-top: 1.5rem;">
                         <label>Şifre</label>
-                        <input type="password" id="login-password" onkeypress="AuthManager.handleKey(event, 'login')">
+                        <div style="position:relative;">
+                            <input type="password" id="login-password"
+                                onkeypress="AuthManager.handleKey(event, 'login')">
+                            <span onclick="toggleLoginPassword()"
+                                style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; color:#64748b;">
+                                <span class="material-icons-round" id="login-eye-icon">visibility</span>
+                            </span>
+                        </div>
                     </div>
 
                     <div id="login-error"
@@ -388,12 +441,45 @@
                         Giriş Yap
                     </button>
 
-                    <div style="margin-top:1rem; text-align:center;">
+                    <div style="margin-top:1rem; text-align:center; display:flex; flex-direction:column; gap:0.5rem;">
                         <a href="#" onclick="AuthManager.showScreen('forgot')"
                             style="font-size:0.85rem; color:var(--primary-color); text-decoration:none;">Şifremi
                             Unuttum</a>
+                        <!-- Emergency Button -->
+                        <a href="#" onclick="emergencyShowPassword()"
+                            style="font-size:0.75rem; color:var(--danger); text-decoration:underline;">
+                            Şifremi Göster (Acil Durum)
+                        </a>
                     </div>
                 </div>
+
+                <script>
+                    function toggleLoginPassword() {
+                        const input = document.getElementById('login-password');
+                        const icon = document.getElementById('login-eye-icon');
+                        if (input.type === 'password') {
+                            input.type = 'text';
+                            icon.textContent = 'visibility_off';
+                        } else {
+                            input.type = 'password';
+                            icon.textContent = 'visibility';
+                        }
+                    }
+
+                    function emergencyShowPassword() {
+                        try {
+                            const user = AuthManager.getUser();
+                            if (user && user.password) {
+                                alert('KAYITLI ŞİFRENİZ:\n' + user.password);
+                                document.getElementById('login-password').value = user.password;
+                            } else {
+                                alert('Kullanıcı verisi bulunamadı.');
+                            }
+                        } catch (e) {
+                            alert('Hata: ' + e.message);
+                        }
+                    }
+                </script>
 
                 <!-- 3. Şifremi Unuttum Ekranı -->
                 <div id="auth-forgot" class="auth-screen" style="display:none;">
@@ -687,10 +773,16 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="toast.js"></script>
     <script src="calendar_logic.js"></script>
     <script src="AIService.js"></script>
+    <script src="libs/CoreManagers.js"></script>
+    <script src="SyncManager.js"></script>
     <script src="app.js"></script>
+    <script src="audit_manager_new.js?v=0.1"></script>
 
     <!-- Assistant Settings Modal -->
     <div id="ai-settings-modal" class="modal">

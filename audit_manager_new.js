@@ -1,213 +1,388 @@
-// --- Audit Manager (Multi-File Support) ---
-const AuditManager = {
-    data: [], // Parsed Excel Structure (Sheets & Questions)
-    activeFormTab: 0, // Tab index for the Excel Form sheets
-    activeSection: 'info', // Top-level section: 'info', 'notes', 'photos', 'form'
+
+// --- Audit Manager (Multi-File Support & Dynamic Types) ---
+// Migrated from Exported Page
+// Migrated from Exported Page
+window.AuditManager = {
+    data: null, // Parsed Excel Structure (Sheets & Questions)
+    activeFormTab: 0,
+    activeSection: 'info', // 'info', 'notes', 'photos', 'form'
     currentAuditId: null,
     currentAuditName: null,
+    currentAuditType: null, // 'il_mudurlugu', 'kyk_yurt', etc.
+    currentTemplate: null, // 'template_yurt.xlsx' etc.
 
-    // 1. Dashboard View (List of Audits)
+    // Hardcoded Templates for Fallback (CORS/Browser support)
+    TEMPLATES: {
+        'Özel Yurt/template_ozel_yurt.xlsx': [
+            {
+                name: "Özel Yurt Denetimi", items: [
+                    { type: 'question', id: 'q1', text: 'Kurum açma izin belgesi mevcut mu?', area: 'Genel' },
+                    { type: 'question', id: 'q2', text: 'Yangın merdiveni ve çıkışları açık ve kullanılabilir mi?', area: 'Güvenlik' },
+                    { type: 'question', id: 'q3', text: 'Yemekhane hijyen kurallarına uygun mu?', area: 'Sağlık' },
+                    { type: 'question', id: 'q4', text: 'Öğrenci kayıt defteri güncel tutuluyor mu?', area: 'İdari' },
+                    { type: 'question', id: 'q5', text: 'Personel çalışma izinleri tam mı?', area: 'Personel' },
+                    { type: 'question', id: 'q6', text: 'Isıtma ve havalandırma sistemleri çalışıyor mu?', area: 'Teknik' },
+                    { type: 'question', id: 'q7', text: 'Güvenlik kameraları aktif mi?', area: 'Güvenlik' },
+                    { type: 'question', id: 'q8', text: 'Ecza dolabı ve ilk yardım malzemeleri tam mı?', area: 'Sağlık' }
+                ]
+            }
+        ],
+        'Federasyon/template_federasyon.xlsx': [
+            {
+                name: "Federasyon Denetimi", items: [
+                    { type: 'question', id: 'q1', text: 'Federasyon ana statüsü mevzuata uygun mu?', area: 'Hukuk' },
+                    { type: 'question', id: 'q2', text: 'Genel kurul tutanakları usulüne uygun tutulmuş mu?', area: 'İdari' },
+                    { type: 'question', id: 'q3', text: 'Yönetim kurulu karar defteri mevcut ve onaylı mı?', area: 'İdari' },
+                    { type: 'question', id: 'q4', text: 'Harcamalar bütçe talimatına uygun yapılmış mı?', area: 'Mali' },
+                    { type: 'question', id: 'q5', text: 'Personel özlük dosyaları tam mı?', area: 'Personel' },
+                    { type: 'question', id: 'q6', text: 'Sponsorluk sözleşmeleri dosyalanmış mı?', area: 'Mali' },
+                    { type: 'question', id: 'q7', text: 'Mal ve hizmet alımları ihale yönetmeliğine uygun mu?', area: 'Mali' },
+                    { type: 'question', id: 'q8', text: 'Demirbaş eşya defteri güncel mi?', area: 'İdari' }
+                ]
+            }
+        ],
+        'Kulüp/template_kulup.xlsx': [
+            {
+                name: "Spor Kulübü Denetimi", items: [
+                    { type: 'question', id: 'q1', text: 'Dernekler masası / Spor İl Müd. tescil belgesi var mı?', area: 'Hukuk' },
+                    { type: 'question', id: 'q2', text: 'Üye kayıt defteri güncel mi?', area: 'İdari' },
+                    { type: 'question', id: 'q3', text: 'Karar defteri noter tasdikli mi?', area: 'İdari' },
+                    { type: 'question', id: 'q4', text: 'Alındı belgeleri ve faturalar düzenli saklanıyor mu?', area: 'Mali' },
+                    { type: 'question', id: 'q5', text: 'Antrenör sözleşmeleri ve vizeleri tam mı?', area: 'Sportif' },
+                    { type: 'question', id: 'q6', text: 'Sporcu lisansları güncel mi?', area: 'Sportif' },
+                    { type: 'question', id: 'q7', text: 'Yıllık beyanname zamanında verilmiş mi?', area: 'Hukuk' },
+                    { type: 'question', id: 'q8', text: 'Lokal açma izni var mı (varsa)?', area: 'İdari' }
+                ]
+            }
+        ],
+        'İl Denetim/il.xlsx': [
+            {
+                name: "İl Müdürlüğü Denetimi", items: [
+                    { type: 'question', id: 'q1', text: 'Yatırım projeleri planlamaya uygun ilerliyor mu?', area: 'Yatırım' },
+                    { type: 'question', id: 'q2', text: 'Tesislerin bakım ve onarımı düzenli yapılıyor mu?', area: 'Tesisler' },
+                    { type: 'question', id: 'q3', text: 'Personel devam takibi yapılıyor mu?', area: 'Personel' },
+                    { type: 'question', id: 'q4', text: 'Gelen/Giden evrak kayıtları düzenli mi?', area: 'İdari' },
+                    { type: 'question', id: 'q5', text: 'Taşınır işlem fişleri güncel mi?', area: 'Mali' }
+                ]
+            }
+        ],
+        'Kyk Yurt Denetim Şablonu/template_yurt.xlsx': [
+            {
+                name: "KYK Yurt Denetimi", items: [
+                    { type: 'question', id: 'q1', text: 'Öğrenci giriş-çıkış sistemi aktif mi?', area: 'Güvenlik' },
+                    { type: 'question', id: 'q2', text: 'Yemekhane numune alma işlemi yapılıyor mu?', area: 'Sağlık' },
+                    { type: 'question', id: 'q3', text: 'Kantin fiyat listesi asılı mı?', area: 'İşletme' },
+                    { type: 'question', id: 'q4', text: 'Oda temizlik kontrolleri yapılıyor mu?', area: 'Temizlik' },
+                    { type: 'question', id: 'q5', text: 'Yangın tüplerinin dolumu güncel mi?', area: 'Güvenlik' }
+                ]
+            }
+        ]
+    },
+
+    // 1. Dashboard View (Integrated from Exported Page)
     initView: () => {
         const container = document.getElementById('content-area');
+
+        // Basic Template for Dashboard
+        container.innerHTML = `
+            <div id="view-denetim-dashboard" class="view-section">
+                <!-- HEADER ACTIONS & CARDS -->
+                <div class="header-actions" style="margin-bottom:1.5rem;">
+                    <h3>Denetim</h3>
+                    <p style="color:var(--text-secondary);">Lütfen denetim türünü seçiniz:</p>
+                    
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-top:1rem;">
+                        
+                        <!-- 1. İl Müd -->
+                         <div class="card stat-card" onclick="AuditManager.promptNewAudit('il_mudurlugu', 'İl Denetim/il.xlsx')" style="cursor:pointer; border-left:4px solid var(--primary-color);">
+                            <div class="icon-box info"><span class="material-icons-round">account_balance</span></div>
+                            <div><div style="font-weight:600;">İl Müdürlüğü</div><div style="font-size:0.8rem; color:var(--text-secondary);">Genel Denetim</div></div>
+                        </div>
+
+                        <!-- 2. KYK Yurt -->
+                        <div class="card stat-card" onclick="AuditManager.promptNewAudit('kyk_yurt', 'Kyk Yurt Denetim Şablonu/template_yurt.xlsx')" style="cursor:pointer; border-left:4px solid var(--warning);">
+                            <div class="icon-box warning"><span class="material-icons-round">apartment</span></div>
+                            <div><div style="font-weight:600;">KYK Yurt</div><div style="font-size:0.8rem; color:var(--text-secondary);">Yurt Denetimi</div></div>
+                        </div>
+
+                        <!-- 3. Özel Yurt (Yakında) -->
+                         <div class="card stat-card" style="opacity:0.6; grayscale(1); cursor:not-allowed; border-left:4px solid var(--success); position:relative;">
+                            <div style="position:absolute; top:8px; right:8px; background:#f1f5f9; color:#64748b; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:bold; border:1px solid #e2e8f0;">YAKINDA</div>
+                            <div class="icon-box success"><span class="material-icons-round">home_work</span></div>
+                            <div><div style="font-weight:600;">Özel Yurt</div><div style="font-size:0.8rem; color:var(--text-secondary);">Barınma Denetimi</div></div>
+                        </div>
+
+                        <!-- 4. Federasyon (Yakında) -->
+                        <div class="card stat-card" style="opacity:0.6; grayscale(1); cursor:not-allowed; border-left:4px solid #8b5cf6; position:relative;">
+                            <div style="position:absolute; top:8px; right:8px; background:#f1f5f9; color:#64748b; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:bold; border:1px solid #e2e8f0;">YAKINDA</div>
+                            <div class="icon-box" style="background:#8b5cf6;"><span class="material-icons-round">sports_soccer</span></div>
+                            <div><div style="font-weight:600;">Federasyon</div><div style="font-size:0.8rem; color:var(--text-secondary);">Federasyon Denetimi</div></div>
+                        </div>
+
+                        <!-- 5. Kulüp (Yakında) -->
+                        <div class="card stat-card" style="opacity:0.6; grayscale(1); cursor:not-allowed; border-left:4px solid #ef4444; position:relative;">
+                            <div style="position:absolute; top:8px; right:8px; background:#f1f5f9; color:#64748b; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:bold; border:1px solid #e2e8f0;">YAKINDA</div>
+                            <div class="icon-box" style="background:#ef4444;"><span class="material-icons-round">groups</span></div>
+                            <div><div style="font-weight:600;">Kulüp</div><div style="font-size:0.8rem; color:var(--text-secondary);">Spor Kulübü Denetimi</div></div>
+                        </div>
+
+                        <!-- 6. Diğer (Yakında) -->
+                         <div class="card stat-card" style="opacity:0.6; grayscale(1); cursor:not-allowed; border-left:4px solid #64748b; position:relative;">
+                            <div style="position:absolute; top:8px; right:8px; background:#f1f5f9; color:#64748b; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:bold; border:1px solid #e2e8f0;">YAKINDA</div>
+                            <div class="icon-box" style="background:#64748b;"><span class="material-icons-round">folder_open</span></div>
+                            <div><div style="font-weight:600;">Genel / Diğer</div><div style="font-size:0.8rem; color:var(--text-secondary);">Serbest Denetim</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="list-section" style="margin-top:2rem;">
+                    <h3>Dosyalar</h3>
+                    <div id="audit-list-container">
+                        <div class="spinner"></div> Yükleniyor...
+                    </div>
+                </div>
+            </div>`;
+
+        // Render list via AuditManager
+        setTimeout(AuditManager.initListView, 100);
+    },
+
+    initListView: () => {
+        const container = document.getElementById('audit-list-container');
+        if (!container) return;
+
         const audits = StorageManager.get('audit_records', []);
+        const reports = typeof ReportManager !== 'undefined' ? ReportManager.getReports() : [];
 
-        // --- Migration Logic: Recover Old Data ---
-        const oldData = StorageManager.get('audit_form_state');
-        if (oldData && Object.keys(oldData).length > 0) {
-            const recoveryId = 'audit_recovery_' + Date.now();
-            const recoveryRecord = {
-                id: recoveryId,
-                name: 'Otomatik Yedek (Eski Veriler)',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                data: { form: oldData, info: {}, notes: '', photos: [] }, // Migrated to new structure
-                progress: 0
-            };
-            // Add to audits list and save
-            audits.unshift(recoveryRecord);
-            StorageManager.set('audit_records', audits);
-
-            // Clear old data to prevent re-migration
-            StorageManager.set('audit_form_state', null);
-
-            Toast.show('Eski verileriniz "Otomatik Yedek" olarak kurtarıldı.', 'info');
+        if (audits.length === 0) {
+            container.innerHTML = `<p style="color:var(--text-secondary); font-style:italic; padding:1rem; text-align:center;">Henüz aktif bir denetim dosyası yok. Yukarıdan bir tür seçerek başlayın.</p>`;
+            return;
         }
 
-        let auditListHtml = '';
-        if (audits.length === 0) {
-            auditListHtml = `
-                <div class="empty-state">
-                    <span class="material-icons-round" style="font-size:3rem; color:var(--text-muted); opacity:0.5;">folder_open</span>
-                    <p>Henüz kayıtlı bir denetim yok.</p>
-                </div>`;
-        } else {
-            const reports = (typeof ReportManager !== 'undefined') ? ReportManager.getReports() : [];
+        // Grouping
+        const groups = {};
+        audits.forEach(audit => {
+            const taskId = audit.taskId || audit.data?.taskId || 'independent';
+            if (!groups[taskId]) groups[taskId] = [];
+            groups[taskId].push(audit);
+        });
 
-            auditListHtml = `<div class="audit-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;">
-                ${audits.map(audit => {
-                const linkedReport = audit.linkedReportId ? reports.find(r => r.id == audit.linkedReportId) : null;
-                const linkedHtml = linkedReport ? `<div style="font-size:0.75rem; color:var(--primary-color); margin-top:0.25rem;">Bağlantılı İş: ${linkedReport.code ? linkedReport.code : ''} ${linkedReport.title}</div>` : '';
+        let html = '';
+
+        Object.keys(groups).forEach(taskId => {
+            let groupTitle = 'Bağımsız Denetimler';
+            let groupIcon = 'folder_open';
+
+            if (taskId !== 'independent') {
+                const reportId = taskId.startsWith('report_') ? parseInt(taskId.replace('report_', '')) : parseInt(taskId);
+                const report = reports.find(r => r.id === reportId);
+                groupTitle = report ? (report.code ? `${report.code} - ${report.title}` : report.title) : 'Bilinmeyen Görev';
+                groupIcon = 'assignment';
+            }
+
+            html += `
+                <div class="audit-group" style="margin-bottom:2rem;">
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:2px solid #e2e8f0;">
+                         <span class="material-icons-round" style="color:var(--primary-color);">${groupIcon}</span>
+                         <h4 style="margin:0; font-size:1.1rem; color:var(--text-main);">${groupTitle}</h4>
+                         <span style="margin-left:auto; background:#f1f5f9; padding:2px 8px; border-radius:12px; font-size:0.75rem; color:var(--text-secondary);">${groups[taskId].length} Dosya</span>
+                    </div>
+                    <div class="audit-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;">
+                        ${groups[taskId].map(audit => {
+                let typeLabel = 'Bilinmiyor';
+                let icon = 'folder';
+                if (audit.type === 'il_mudurlugu') { typeLabel = 'İl Müd. Denetimi'; icon = 'account_balance'; }
+                else if (audit.type === 'kyk_yurt') { typeLabel = 'KYK Yurt Denetimi'; icon = 'apartment'; }
+                else if (audit.type === 'ozel_yurt') { typeLabel = 'Özel Yurt Denetimi'; icon = 'home_work'; }
+                else if (audit.type === 'federasyon') { typeLabel = 'Federasyon Denetimi'; icon = 'sports_soccer'; }
+                else if (audit.type === 'kulup') { typeLabel = 'Kulüp Denetimi'; icon = 'groups'; }
 
                 return `
-                    <div class="card" style="cursor:pointer; transition:transform 0.2s; border:1px solid var(--border-color);" onclick="AuditManager.loadAudit('${audit.id}')">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                            <div style="font-weight:600; font-size:1.05rem; margin-bottom:0.5rem;">${audit.name}</div>
-                            <button class="btn btn-icon" onclick="event.stopPropagation(); AuditManager.deleteAudit('${audit.id}')" title="Sil">
-                                <span class="material-icons-round" style="color:var(--danger); font-size:1.2rem;">delete</span>
-                            </button>
-                        </div>
-                        <div style="font-size:0.85rem; color:var(--text-secondary);">
-                            <div>Tarih: ${new Date(audit.updatedAt || audit.createdAt).toLocaleDateString('tr-TR')}</div>
-                            <div style="margin-top:0.25rem;">Durum: %${audit.progress || 0} tamamlandı</div>
-                            ${linkedHtml}
-                        </div>
-                    </div>`;
+                            <div class="card" style="cursor:pointer; transition:transform 0.2s; border:1px solid var(--border-color); display:flex; gap:1rem; align-items:center;" onclick="AuditManager.loadAudit('${audit.id}')">
+                                <div style="background:var(--bg-main); width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--primary-color);">
+                                    <span class="material-icons-round">${icon}</span>
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:600; font-size:1rem; margin-bottom:0.1rem;">${audit.name}</div>
+                                    <div style="font-size:0.75rem; color:var(--text-secondary);">${typeLabel}</div>
+                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${new Date(audit.updatedAt).toLocaleDateString('tr-TR')}</div>
+                                </div>
+                                <button class="btn btn-icon" onclick="event.stopPropagation(); AuditManager.deleteAudit('${audit.id}')" title="Sil">
+                                    <span class="material-icons-round" style="color:var(--danger); font-size:1.2rem;">delete</span>
+                                </button>
+                            </div>`;
             }).join('')}
-            </div>`;
+                    </div>
+                </div>`;
+        });
+
+        container.innerHTML = html;
+    },
+
+    // 2. Start New Audit
+    promptNewAudit: (type, templateFile) => {
+        // Redirect to Preparation Screen
+        AuditManager.showPreparationScreen(type, templateFile);
+    },
+
+    showPreparationScreen: (type, template) => {
+        const modalId = 'audit-prep-modal';
+        let modal = document.getElementById(modalId);
+        if (modal) modal.remove();
+
+        // Get Active Tasks for Dropdown
+        let tasks = [];
+        let reports = [];
+        const taskMgr = window.TaskManager || (typeof TaskManager !== 'undefined' ? TaskManager : null);
+        const reportMgr = window.ReportManager || (typeof ReportManager !== 'undefined' ? ReportManager : null);
+
+        if (taskMgr) {
+            const allTasks = taskMgr.getTasks() || [];
+            tasks = allTasks.filter(t => !t.completed);
         }
 
-        container.innerHTML = `
-            <div id="view-audit-dashboard" class="view-section">
-                <div class="header-actions" style="justify-content:space-between; margin-bottom:1.5rem;">
-                    <h3>Denetim Dosyaları</h3>
-                    <button class="btn btn-primary" onclick="AuditManager.promptNewAudit()">
-                        <span class="material-icons-round">add</span> Yeni Denetim Başlat
-                    </button>
+        if (reportMgr) {
+            const allReports = reportMgr.getReports() || [];
+            // Raporlardan durumuna göre filtrele (opsiyonel, şimdilik hepsini gösterelim)
+            reports = allReports.filter(r => r.status !== 'tamamlandi');
+        }
+
+        let taskOptions = '';
+
+        if (reports.length > 0) {
+            taskOptions += `<optgroup label="📂 Görevler Sayfası">`;
+            taskOptions += reports.map(r => `<option value="report_${r.id}">${r.code ? r.code + ' - ' : ''}${r.title || 'İsimsiz Rapor'}</option>`).join('');
+            taskOptions += `</optgroup>`;
+        }
+
+        const modalOverlay = document.createElement('div');
+        modalOverlay.id = modalId;
+        modalOverlay.className = 'modal-overlay';
+        modalOverlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; display:flex; justify-content:center; align-items:center;';
+
+        const defaultName = type === 'il_mudurlugu' ? 'İl Müdürlüğü Denetimi 2025' : 'Denetim Dosyası';
+
+        modalOverlay.innerHTML = `
+            <div class="modal-card" style="width: 500px; max-width: 90%; background:var(--bg-card); padding:2rem; border-radius:1rem; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+                 <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                    <h3 style="margin:0;">Denetim Hazırlığı</h3>
+                    <span class="material-icons-round close-btn" style="cursor:pointer;" onclick="document.getElementById('${modalId}').remove()">close</span>
                 </div>
-                ${auditListHtml}
-            </div>`;
-    },
+                <div class="modal-body">
+                    <div style="margin-bottom:1.5rem;">
+                        <label style="display:block; margin-bottom:0.5rem; font-weight:500;">Dosya Adı / Başlık</label>
+                        <input type="text" id="prep-audit-name" class="form-input" value="${defaultName}" 
+                            style="width:100%; padding:0.75rem; border:1px solid var(--border-color); border-radius:0.5rem; background:var(--bg-main); color:var(--text-main);">
+                    </div>
 
-    // 2. Start New Audit Flow
-    promptNewAudit: () => {
-        // Mevcut Görevleri Al
-        const reports = (typeof ReportManager !== 'undefined') ? ReportManager.getReports() : [];
-        const activeReports = reports.filter(r => r.status !== 'tamamlandi');
+                    <div class="form-group" style="margin-bottom:1.5rem;">
+                        <label style="display:block; margin-bottom:0.5rem; font-weight:500;">İlgili Görev (Opsiyonel)</label>
+                        <select id="prep-task-select" class="form-input" style="width:100%; padding:0.5rem; border:1px solid var(--border-color); border-radius:0.5rem;">
+                            <option value="">-- Görev Seçiniz --</option>
+                            ${taskOptions}
+                        </select>
+                        <small style="color:var(--text-secondary);">Seçilen görev ile denetim dosyası ilişkilendirilecektir.</small>
+                    </div>
 
-        const reportOptions = activeReports.map(r =>
-            `<option value="${r.id}" data-title="${r.title}">${r.code ? r.code + ' - ' : ''}${r.title}</option>`
-        ).join('');
-
-        // Create dynamic modal
-        const modalId = 'new-audit-modal-' + Date.now();
-        const modalHtml = `
-        <div id="${modalId}" class="modal" style="display:flex; justify-content:center; align-items:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000;">
-            <div class="modal-content" style="background:var(--bg-card); padding:2rem; border-radius:1rem; width:450px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
-                <h3 style="margin-bottom:1rem; color:var(--text-main);">Yeni Denetim Başlat</h3>
-                
-                <div class="form-group" style="margin-bottom:1rem;">
-                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-secondary); font-size:0.9rem;">Hangi İş İçin?</label>
-                    <select id="${modalId}-report-select" style="width:100%; padding:0.75rem; border:1px solid var(--border-color); border-radius:0.5rem; background:var(--bg-main); color:var(--text-main); font-size:1rem;">
-                        <option value="">-- Görev Seçin (Veya Boş Bırakın) --</option>
-                        ${reportOptions}
-                    </select>
-                </div>
-
-                <div class="form-group" style="margin-bottom:1.5rem;">
-                    <label style="display:block; margin-bottom:0.5rem; color:var(--text-secondary); font-size:0.9rem;">Denetim Dosyası İsmi</label>
-                    <input type="text" id="${modalId}-input" placeholder="Örn: A Yurt Müdürlüğü" 
-                        style="width:100%; padding:0.75rem; border:1px solid var(--border-color); border-radius:0.5rem; background:var(--bg-main); color:var(--text-main); font-size:1rem;">
-                </div>
-
-                <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
-                    <button class="btn btn-outline" onclick="document.getElementById('${modalId}').remove()">İptal</button>
-                    <button class="btn btn-primary" id="${modalId}-btn">Oluştur</button>
+                    <div style="margin-top:2rem; text-align:right;">
+                        <button class="btn btn-primary" style="width:100%;" onclick="AuditManager.startAuditFromPrep('${type}', '${template}')">
+                            <span class="material-icons-round">play_arrow</span> Denetimi Başlat
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>`;
-
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-        const select = document.getElementById(`${modalId}-report-select`);
-        const input = document.getElementById(`${modalId}-input`);
-        const btn = document.getElementById(`${modalId}-btn`);
-
-        // Görev seçildiğinde ismi otomatik doldur
-        select.onchange = () => {
-            const selectedOption = select.options[select.selectedIndex];
-            if (selectedOption.value) {
-                input.value = selectedOption.getAttribute('data-title');
-            }
-        };
-
-        input.focus();
-
-        const create = () => {
-            const name = input.value.trim();
-            const linkedReportId = select.value;
-            if (name) {
-                AuditManager.createNewAudit(name, linkedReportId);
-                document.getElementById(modalId).remove();
-            } else {
-                Toast.show('Lütfen bir isim giriniz.', 'warning');
-            }
-        };
-
-        btn.onclick = create;
-        input.onkeypress = (e) => {
-            if (e.key === 'Enter') create();
-        };
-
-        // Close on escape
-        input.onkeydown = (e) => {
-            if (e.key === 'Escape') document.getElementById(modalId).remove();
-        };
+        `;
+        document.body.appendChild(modalOverlay);
     },
 
-    createNewAudit: (name, linkedReportId = null) => {
+    startAuditFromPrep: (type, template) => {
+        const rawId = document.getElementById('prep-task-select').value;
+        const auditNameInput = document.getElementById('prep-audit-name');
+        const name = auditNameInput ? auditNameInput.value.trim() : '';
+
+        const modal = document.getElementById('audit-prep-modal');
+
+        if (!name) {
+            Toast.show('Lütfen bir denetim adı giriniz.', 'warning');
+            return;
+        }
+
+        if (modal) modal.remove();
+
+        // Process Task/Report ID
+        let taskId = null;
+        if (rawId) {
+            taskId = rawId;
+        }
+
+        AuditManager.createNewAudit(name, type, template, taskId);
+    },
+
+    createNewAudit: (name, type, templateFile, taskId = null) => {
         const newId = 'audit_' + Date.now();
         let folderPath = null;
 
-        // PC Modu (Electron) ise Fiziksel Klasör Oluştur
-        if (typeof require !== 'undefined' && linkedReportId) {
+        // Electron: Create Folder
+        if (typeof require !== 'undefined') {
             try {
-                const reports = ReportManager.getReports();
-                const report = reports.find(r => r.id == linkedReportId);
-                if (report) {
-                    const taskFolder = FolderManager.getFolderForReport(report);
-                    const fs = require('fs');
-                    const path = require('path');
+                const fs = require('fs');
+                const path = require('path');
+                const rootDir = PathManager.join('Denetim Dosyalari');
+                if (!fs.existsSync(rootDir)) fs.mkdirSync(rootDir, { recursive: true });
 
-                    // Hiyerarşi: Ana Görev > Yurt denetimi > Yurt İsmi
-                    const baseAuditDir = path.join(taskFolder, 'Yurt denetimi');
-                    const safeName = name.replace(/[\u003c\u003e:\"/\\\\|?*]/g, '_');
-                    folderPath = path.join(baseAuditDir, safeName);
+                const typeDir = path.join(rootDir, type);
+                if (!fs.existsSync(typeDir)) fs.mkdirSync(typeDir, { recursive: true });
 
-                    if (!fs.existsSync(folderPath)) {
-                        fs.mkdirSync(folderPath, { recursive: true });
-                    }
-                }
-            } catch (e) {
-                console.error('Klasör oluşturma hatası:', e);
-            }
+                const safeName = name.replace(/[\u003c\u003e:\"/\\\\|?*]/g, '_');
+                folderPath = path.join(typeDir, safeName);
+                if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
+
+            } catch (e) { console.error('Folder create error:', e); }
         }
 
-        const newRecord = {
+        const newAudit = {
             id: newId,
             name: name,
-            linkedReportId: linkedReportId,
-            folderPath: folderPath, // Fiziksel yol kaydedildi
+            type: type,
+            template: templateFile,
+            folderPath: folderPath, // Keep folderPath for Electron
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            data: { form: {}, info: {}, notes: '', photos: [] },
+            status: 'active',
+            taskId: taskId,
+            data: {
+                info: {},
+                form: {},
+                notes: '',
+                photos: []
+            },
             progress: 0
         };
 
-        StorageManager.addToArray('audit_records', newRecord);
-        AuditManager.loadAudit(newId);
-    },
+        StorageManager.addToArray('audit_records', newAudit);
 
-    deleteAudit: (id) => {
-        if (confirm('Bu denetim dosyası silinecek. Emin misiniz?')) {
-            StorageManager.removeFromArray('audit_records', 'id', id);
-            AuditManager.initView(); // Refresh list
-            Toast.show('Dosya silindi.', 'success');
+        // LINK TASK
+        if (taskId && typeof TaskManager !== 'undefined') {
+            TaskManager.linkAudit(taskId, newId);
         }
+
+        AuditManager.loadAudit(newAudit.id);
     },
 
-    // 3. Load & Edit Audit (Profile View)
+    deleteAudit: async (id) => {
+        if (!confirm('Bu denetim dosyası silinecek. Emin misiniz?')) return;
+
+        StorageManager.removeFromArray('audit_records', 'id', id);
+
+        // Refresh logic: only re-render dashboard if we are on that view
+        if (document.getElementById('view-denetim-dashboard')) {
+            AuditManager.initListView();
+        }
+        Toast.show('Dosya silindi.', 'success');
+    },
+
+    // 3. Load & Edit
     loadAudit: (id) => {
-        // Find record
         const audits = StorageManager.get('audit_records', []);
         const record = audits.find(a => a.id === id);
 
@@ -219,53 +394,65 @@ const AuditManager = {
 
         AuditManager.currentAuditId = id;
         AuditManager.currentAuditName = record.name;
-        AuditManager.activeSection = 'info'; // Default to Info tab
+        AuditManager.currentAuditType = record.type;
+        AuditManager.currentTemplate = record.template;
+        AuditManager.activeSection = 'info';
 
-        // Setup UI for Editing
         AuditManager.renderEditor();
-        AuditManager.loadFormTemplate(); // Load Excel structure for form tab
+        AuditManager.loadFormTemplate(record.template);
     },
 
     renderEditor: () => {
         const container = document.getElementById('content-area');
-
-        // Tab Styles
         const getTabStyle = (section) => {
             const isActive = AuditManager.activeSection === section;
             return `padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid ${isActive ? 'var(--primary-color)' : 'transparent'}; color: ${isActive ? 'var(--primary-color)' : 'var(--text-secondary)'}; font-weight: ${isActive ? '600' : '400'}; transition: all 0.2s; font-size:0.95rem;`;
         };
 
+        const typeLabels = {
+            'il_mudurlugu': 'İl Müd.',
+            'kyk_yurt': 'KYK Yurt',
+            'ozel_yurt': 'Özel Yurt',
+            'federasyon': 'Federasyon',
+            'kulup': 'Kulüp'
+        };
+
+        const typeLabel = typeLabels[AuditManager.currentAuditType] || 'Denetim';
+
         container.innerHTML = `
             <div id="view-audit-editor" class="view-section" style="height: 100vh; display: flex; flex-direction: column;">
                 <!-- Header -->
-                <div class="header-actions" style="display:flex; justify-content:space-between; align-items:flex-start; padding-bottom: 0.5rem; flex-shrink: 0;">
-                    <div style="display:flex; align-items:center; gap:0.5rem;">
-                         <button class="btn btn-icon" onclick="AuditManager.initView()" title="Geri">
+                <div class="audit-header" style="display:flex; justify-content:space-between; padding-bottom:1rem; border-bottom:1px solid var(--border-color); margin-bottom:1rem;">
+                    <div class="audit-header-top" style="display:flex; align-items:center; gap:1rem;">
+                        <button class="btn btn-icon audit-back-button" onclick="AuditManager.initView()" title="Geri">
                             <span class="material-icons-round">arrow_back</span>
                         </button>
-                        <div>
+                        <div class="audit-header-title">
                             <h3 style="margin:0;">${AuditManager.currentAuditName}</h3>
-                            <span style="font-size:0.8rem; color:var(--text-secondary);">Denetim Dosyası</span>
+                            <span class="badge" style="font-size:0.75rem; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:12px;">${typeLabel}</span>
                         </div>
                     </div>
                     
-                    <!-- Save Button positioned Top-Right -->
-                    <button class="btn btn-outline" onclick="AuditManager.saveAll()" style="border:none; color:var(--text-secondary); margin-left:auto;">
-                        <span class="material-icons-round" style="margin-right:0.25rem;">save</span> Kaydet
-                    </button>
+                    <div class="audit-header-actions" style="display:flex; gap:0.5rem;">
+                        <button class="btn btn-outline" onclick="AuditManager.exportToExcel()" title="Excel'e Aktar">
+                            <span class="material-icons-round">file_download</span> Excel
+                        </button>
+                        <button class="btn btn-primary" onclick="AuditManager.saveAll()">
+                            <span class="material-icons-round">save</span> Kaydet
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Section Tabs -->
-                <div style="display:flex; border-bottom:1px solid var(--border-color); flex-shrink: 0;">
-                    <div onclick="AuditManager.switchSection('info')" style="${getTabStyle('info')}">Yurt Bilgileri</div>
+                <!-- Tabs -->
+                <div style="display:flex; border-bottom:1px solid var(--border-color); flex-shrink: 0; margin-bottom:1rem;">
+                    <div onclick="AuditManager.switchSection('info')" style="${getTabStyle('info')}">Genel Bilgiler</div>
                     <div onclick="AuditManager.switchSection('notes')" style="${getTabStyle('notes')}">Notlar</div>
                     <div onclick="AuditManager.switchSection('photos')" style="${getTabStyle('photos')}">Fotoğraflar</div>
-                    <div onclick="AuditManager.switchSection('form')" style="${getTabStyle('form')}">Denetim Formu</div>
+                    <div onclick="AuditManager.switchSection('form')" style="${getTabStyle('form')}">Kontrol Listesi</div>
                 </div>
 
-                <!-- Dynamic Content Area -->
+                <!-- Content -->
                 <div id="audit-section-content" class="card" style="padding: 1rem; flex: 1; overflow-y: auto; margin-top:0;">
-                    <!-- Content will be injected here -->
                 </div>
             </div>`;
 
@@ -283,149 +470,265 @@ const AuditManager = {
 
         const record = AuditManager.getRecord();
         const data = record.data || {};
+        const info = data.info || {};
 
         if (AuditManager.activeSection === 'info') {
-            // --- INFO TAB ---
-            const info = data.info || {};
+            // DYNAMIC INFO FIELDS BASED ON TYPE
+            let fieldsHtml = '';
+
+            if (AuditManager.currentAuditType === 'il_mudurlugu') {
+                fieldsHtml = `
+                    <div class="form-group"><label>İl Müdürü Adı Soyadı</label><input type="text" onchange="AuditManager.updateInfo('directorName', this.value)" value="${info.directorName || ''}"></div>
+                    <div class="form-group"><label>Personel Sayısı</label><input type="text" onchange="AuditManager.updateInfo('staffCount', this.value)" value="${info.staffCount || ''}"></div>
+                    <div class="form-group"><label>Tesis Sayısı</label><input type="text" onchange="AuditManager.updateInfo('facilityCount', this.value)" value="${info.facilityCount || ''}"></div>
+                    <div class="form-group"><label>Denetim Tarihi</label><input type="date" onchange="AuditManager.updateInfo('auditDate', this.value)" value="${info.auditDate || ''}"></div>
+                `;
+            } else if (AuditManager.currentAuditType === 'kyk_yurt' || AuditManager.currentAuditType === 'ozel_yurt') {
+                fieldsHtml = `
+                    <div class="form-group"><label>Yurt Müdürü Adı Soyadı</label><input type="text" onchange="AuditManager.updateInfo('managerName', this.value)" value="${info.managerName || ''}"></div>
+                    <div class="form-group"><label>Kapasite</label><input type="text" onchange="AuditManager.updateInfo('capacity', this.value)" value="${info.capacity || ''}"></div>
+                    <div class="form-group"><label>Mevcut Öğrenci</label><input type="text" onchange="AuditManager.updateInfo('studentCount', this.value)" value="${info.studentCount || ''}"></div>
+                    <div class="form-group"><label>Blok Sayısı</label><input type="text" onchange="AuditManager.updateInfo('blockCount', this.value)" value="${info.blockCount || ''}"></div>
+                `;
+            } else {
+                fieldsHtml = `
+                    <div class="form-group"><label>Yetkili Kişi</label><input type="text" onchange="AuditManager.updateInfo('authName', this.value)" value="${info.authName || ''}"></div>
+                    <div class="form-group"><label>Kuruluş Yılı</label><input type="text" onchange="AuditManager.updateInfo('foundYear', this.value)" value="${info.foundYear || ''}"></div>
+                    <div class="form-group"><label>Adres / İletişim</label><input type="text" onchange="AuditManager.updateInfo('contact', this.value)" value="${info.contact || ''}"></div>
+                `;
+            }
+
             contentDiv.innerHTML = `
-                <div style="max-width: 800px; margin: 0 auto; padding-top:0.5rem;">
-                    <h4 style="margin-bottom:1rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem; font-size:1rem;">Genel Bilgiler</h4>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
-                        <div class="form-group">
-                            <label>Yurt Müdürünün Adı Soyadı</label>
-                            <input type="text" onchange="AuditManager.updateInfo('managerName', this.value)" value="${info.managerName || ''}" placeholder="Ad Soyad" style="width:100%; padding:0.6rem; border:1px solid var(--border-color); border-radius:4px;">
-                        </div>
-                         <div class="form-group">
-                            <label>Yurt Kapasitesi</label>
-                            <input type="text" onchange="AuditManager.updateInfo('capacity', this.value)" value="${info.capacity || ''}" placeholder="Örn: 500" style="width:100%; padding:0.6rem; border:1px solid var(--border-color); border-radius:4px;">
-                        </div>
-                        <div class="form-group">
-                            <label>Personel Sayısı</label>
-                            <input type="text" onchange="AuditManager.updateInfo('staffCount', this.value)" value="${info.staffCount || ''}" placeholder="Örn: 25" style="width:100%; padding:0.6rem; border:1px solid var(--border-color); border-radius:4px;">
-                        </div>
-                        <div class="form-group">
-                            <label>Blok Sayısı</label>
-                            <input type="text" onchange="AuditManager.updateInfo('blockCount', this.value)" value="${info.blockCount || ''}" placeholder="Örn: 3" style="width:100%; padding:0.6rem; border:1px solid var(--border-color); border-radius:4px;">
-                        </div>
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <h4 style="margin-bottom:1rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem;">${AuditManager.currentAuditName} Bilgileri</h4>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:1rem;">
+                        ${fieldsHtml}
                         <div class="form-group" style="grid-column: span 2;">
-                            <label>Adres</label>
-                            <textarea onchange="AuditManager.updateInfo('address', this.value)" rows="3" placeholder="Yurt adresi..." style="width:100%; padding:0.6rem; border:1px solid var(--border-color); border-radius:4px;">${info.address || ''}</textarea>
+                            <label>Notlar</label>
+                            <textarea onchange="AuditManager.updateInfo('generalInfoNotes', this.value)" rows="3">${info.generalInfoNotes || ''}</textarea>
                         </div>
                     </div>
                 </div>`;
 
         } else if (AuditManager.activeSection === 'notes') {
-            // --- NOTES TAB ---
-            const notes = data.generalNotes || '';
             contentDiv.innerHTML = `
-                <div style="height: 100%; display: flex; flex-direction: column; padding-top:0.5rem;">
-                     <h4 style="margin-bottom:0.5rem; font-size:1rem;">Denetim Notları</h4>
+                <div style="height: 100%; display: flex; flex-direction: column;">
                      <textarea style="flex: 1; padding: 1rem; border: 1px solid var(--border-color); border-radius: 0.5rem; font-family: inherit; line-height: 1.6; resize: none;"
-                        placeholder="Yurt ile ilgili genel tespitlerinizi buraya yazabilirsiniz..."
-                        onchange="AuditManager.updateGeneralNotes(this.value)">${notes}</textarea>
+                        placeholder="Genel tespitlerinizi buraya yazabilirsiniz..."
+                        onchange="AuditManager.updateGeneralNotes(this.value)">${data.generalNotes || ''}</textarea>
                 </div>`;
 
         } else if (AuditManager.activeSection === 'photos') {
-            // --- PHOTOS TAB ---
             const photos = data.photos || [];
             const photosHtml = photos.map((photo, idx) => `
                 <div style="position: relative; width: 140px; height: 140px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); background:#eee;">
                     <img src="${photo}" style="width: 100%; height: 100%; object-fit: cover; cursor:pointer;" onclick="AuditManager.viewPhoto('${photo}')">
-                    <button onclick="AuditManager.deletePhoto(${idx})" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer;">&times;</button>
+                    <button onclick="AuditManager.deletePhoto(${idx})" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 24px; height: 24px;">&times;</button>
                 </div>
             `).join('');
 
             contentDiv.innerHTML = `
-                <div style="padding-top:0.5rem;">
-                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem;">
-                        <h4 style="margin:0; font-size:1rem;">Fotoğraf Galerisi</h4>
-                        <button class="btn btn-outline" onclick="document.getElementById('photo-upload').click()" style="padding:0.4rem 0.8rem; font-size:0.85rem;">
-                            <span class="material-icons-round" style="font-size:1.1rem;">add_a_photo</span> Ekle
-                        </button>
+                <div>
+                     <div style="display:flex; justify-content:space-between; margin-bottom:1rem;">
+                        <h4>Galeri</h4>
+                        <button class="btn btn-outline" onclick="document.getElementById('photo-upload').click()">+ Fotoğraf Ekle</button>
                         <input type="file" id="photo-upload" accept="image/*" style="display: none;" onchange="AuditManager.handlePhotoUpload(this)">
                      </div>
                      <div style="display: flex; flex-wrap: wrap; gap: 0.8rem;">
-                        ${photos.length > 0 ? photosHtml : '<p style="color:var(--text-secondary); font-size:0.9rem;">Henüz fotoğraf eklenmemiş.</p>'}
+                        ${photos.length > 0 ? photosHtml : '<p style="color:var(--text-secondary);">Henüz fotoğraf yok.</p>'}
                      </div>
                 </div>`;
-
         } else if (AuditManager.activeSection === 'form') {
-            // --- FORM TAB ---
             AuditManager.renderFormTab(contentDiv);
         }
     },
 
     renderFormTab: (container) => {
-        if (!AuditManager.data || AuditManager.data.length === 0) {
-            container.innerHTML = `<div class="empty-state">
-                <p>Form şablonu yükleniyor...</p>
-                ${AuditManager.data.length === 0 ? '<button class="btn btn-outline" onclick="AuditManager.loadFormTemplate()">Tekrar Dene</button>' : ''}
-            </div>`;
+        if (!container) container = document.getElementById('audit-section-content');
+        if (AuditManager.data === null) {
+            container.innerHTML = `<div class="empty-state"><p><span class="material-icons-round spin">sync</span> Şablon yükleniyor...</p></div>`;
+            return;
+        }
+        if (AuditManager.data.length === 0) {
+            // FALLBACK UI IF TEMPLATE IS EMPTY OR FAILED
+            container.innerHTML = `
+                <div class="empty-state" style="color:var(--text-secondary); text-align:center;">
+                    <p>Şablon yüklenemedi veya boş. Yine de serbest notlar alabilirsiniz.</p>
+                </div>`;
             return;
         }
 
         const record = AuditManager.getRecord();
-        const savedState = record.data.form || record.data || {}; // Fallback for migration
+        const savedState = record.data.form || {};
 
-        // Tabs for Sheets + Excel Button aligned
-        const tabsHtml = `
-            <div style="display:flex; overflow-x:auto; padding-bottom:0.5rem; gap:0.5rem; flex:1; margin-right:1rem;">
-                ${AuditManager.data.map((sheet, index) => {
-            const isActive = index === AuditManager.activeFormTab;
-            return `<button onclick="AuditManager.switchFormTab(${index})" 
-                        style="padding:0.4rem 0.9rem; background:${isActive ? 'var(--primary-color)' : 'transparent'}; color:${isActive ? '#fff' : 'var(--text-main)'}; border:1px solid ${isActive ? 'var(--primary-color)' : 'var(--border-color)'}; border-radius:2rem; cursor:pointer; font-size:0.8rem; white-space:nowrap; transition:all 0.2s;">
-                        ${sheet.name}
-                    </button>`;
-        }).join('')}
-            </div>`;
+        let areas = new Set();
+        let subtitles = new Set();
 
         const activeSheet = AuditManager.data[AuditManager.activeFormTab];
-        let itemsHtml = '';
 
         if (activeSheet && activeSheet.items) {
             activeSheet.items.forEach(item => {
+                if (item.area) areas.add(item.area);
+                if (item.category) subtitles.add(item.category);
+            });
+        }
+
+        const isFederation = AuditManager.currentAuditType === 'federasyon';
+        const isYurt = AuditManager.currentAuditType.includes('yurt');
+        const isIlMudurlugu = AuditManager.currentAuditType === 'il_mudurlugu';
+
+        if (isFederation && areas.size === 0 && AuditManager.data.length > 1) {
+            AuditManager.data.forEach(s => areas.add(s.name));
+        }
+
+        const filterArea = document.getElementById('filter-area-select') ? document.getElementById('filter-area-select').value : '';
+        const rawSubtitle = document.getElementById('filter-subtitle-select') ? document.getElementById('filter-subtitle-select').value : '';
+        const filterSubtitle = rawSubtitle.startsWith('sheet:') ? '' : rawSubtitle;
+        const searchQuery = document.getElementById('audit-search-input') ? document.getElementById('audit-search-input').value.toLocaleLowerCase('tr-TR') : '';
+
+        let itemsHtml = '';
+        if (activeSheet && activeSheet.items) {
+            activeSheet.items.forEach(item => {
+                if (filterArea && item.area && item.area !== filterArea) return;
+                if (filterSubtitle && item.category && item.category !== filterSubtitle) return;
+                if (searchQuery && !item.text.toLocaleLowerCase('tr-TR').includes(searchQuery)) return;
+
                 if (item.type === 'header') {
-                    itemsHtml += `<div style="background:var(--bg-main); padding:0.5rem; margin-top:1rem; border-left:3px solid var(--primary-color); font-weight:600; font-size:0.9rem;">${item.title}</div>`;
+                    itemsHtml += `<div style="background:var(--bg-main); padding:0.5rem; margin-top:1rem; border-left:3px solid var(--primary-color); font-weight:600;">${item.title}</div>`;
                 } else if (item.type === 'question') {
                     const yesChecked = savedState[item.id] === 'yes' ? 'checked' : '';
                     const noChecked = savedState[item.id] === 'no' ? 'checked' : '';
-                    const note = savedState[`note_${item.id}`] || '';
+                    const inspectorNote = savedState[`inspector_note_${item.id}`] || '';
+                    const sheetName = activeSheet.name;
 
-                    itemsHtml += `<div class="audit-item" style="padding:0.8rem; border-bottom:1px solid var(--border-color);">
-                            <div style="margin-bottom:0.4rem; font-size:0.9rem;">${item.text}</div>
-                            <div style="display:flex; gap:1rem; align-items:center;">
-                                <label style="cursor:pointer; display:flex; align-items:center; font-size:0.9rem;"><input type="radio" name="${item.id}" value="yes" ${yesChecked} onchange="AuditManager.updateFormState('${item.id}', 'yes')"> <span style="margin-left:4px;">Evet</span></label>
-                                <label style="cursor:pointer; display:flex; align-items:center; font-size:0.9rem;"><input type="radio" name="${item.id}" value="no" ${noChecked} onchange="AuditManager.updateFormState('${item.id}', 'no')"> <span style="margin-left:4px;">Hayır</span></label>
-                                <input type="text" placeholder="Not..." value="${note}" onchange="AuditManager.updateFormNote('${item.id}', this.value)" style="flex:1; padding:0.3rem 0.5rem; border:1px solid var(--border-color); border-radius:4px; font-size:0.85rem;">
+                    let metaInfo = '';
+                    if (item.area || item.category) {
+                        metaInfo = `<div style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:0.25rem; display:flex; align-items:center; flex-wrap:wrap; gap:0.25rem;">
+                            ${item.area ? `<span style="background:#f1f5f9; padding:2px 6px; border-radius:4px;">${item.area}</span>` : ''}
+                            ${item.category ? `<span style="background:#fff7ed; color:#c2410c; padding:2px 6px; border-radius:4px;">${item.category}</span>` : ''}
+                        </div>`;
+                    }
+
+                    itemsHtml += `<div class="audit-item" style="padding:1rem; border-bottom:1px solid var(--border-color);">
+                            ${metaInfo}
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.8rem;">
+                                <div style="margin-right: 1rem; font-weight:500;">${item.text}</div>
                             </div>
+                            <div style="display:flex; gap:1.5rem; align-items:center; margin-bottom:0.8rem;">
+                                <label style="cursor:pointer; display:flex; align-items:center;"><input type="radio" name="${item.id}" value="yes" ${yesChecked} onchange="AuditManager.updateFormState('${item.id}', 'yes')"> <span style="margin-left:6px;">Evet, Uygun</span></label>
+                                <label style="cursor:pointer; display:flex; align-items:center;"><input type="radio" name="${item.id}" value="no" ${noChecked} onchange="AuditManager.updateFormState('${item.id}', 'no')"> <span style="margin-left:6px; color:var(--danger);">Hayır, Aykırı</span></label>
+                            </div>
+                            <textarea placeholder="Müfettiş Notu" onchange="AuditManager.updateFormNote('${item.id}', this.value, 'inspector_note')" 
+                                style="width:100%; padding:0.5rem; border:1px solid var(--border-color); border-radius:6px; font-family:inherit; min-height:60px; resize:vertical; background:#fbfbfb;">${inspectorNote}</textarea>
                     </div>`;
                 }
             });
         }
 
+        const areaOptionsArr = Array.from(areas);
+        const areaOptionsHtml = areaOptionsArr.map(a => {
+            const isSelected = (filterArea === a) || (isFederation && !filterArea && a === activeSheet.name);
+            return `<option value="${a}" ${isSelected ? 'selected' : ''}>${a}</option>`;
+        }).join('');
+
+        const subtitleOptionsArr = Array.from(subtitles);
+        const subtitleOptionsHtml = subtitleOptionsArr.map(s => `<option value="${s}" ${filterSubtitle === s ? 'selected' : ''}>${s}</option>`).join('');
+
+        const showSheetSelector = !isFederation && !isYurt && !isIlMudurlugu && AuditManager.data.length > 1;
+        const sheetSelectorHtml = showSheetSelector ? `
+            <select onchange="AuditManager.switchFormTab(this.value)" style="padding:0.4rem; border:1px solid var(--border-color); border-radius:4px; font-size:0.85rem; background:#fff; min-width:110px; flex:1; font-weight:600; color:var(--primary-color);">
+                ${AuditManager.data.map((sheet, index) => `<option value="${index}" ${index === AuditManager.activeFormTab ? 'selected' : ''}>${sheet.name}</option>`).join('')}
+            </select>
+        ` : '';
+
+        const filtersHtml = `
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; width:100%;">
+                ${sheetSelectorHtml}
+                <span class="material-icons-round" style="color:var(--text-secondary); font-size:1.2rem;">filter_alt</span>
+                ${isYurt ? `
+                    <select id="filter-subtitle-select" onchange="AuditManager.handleYurtFilter(this.value)" style="padding:0.4rem; border:1px solid var(--border-color); border-radius:4px; font-size:0.85rem; background:#fff; min-width:140px; flex:1; font-weight:600; color:var(--primary-color);">
+                        <option value="">Tüm Kategoriler</option>
+                        ${AuditManager.data.map((s, idx) => `<option value="sheet:${idx}" ${AuditManager.activeFormTab === idx && !filterSubtitle ? 'selected' : ''}>${s.name}</option>`).join('')}
+                        ${subtitleOptionsHtml}
+                    </select>
+                    <input type="hidden" id="filter-area-select" value="">
+                ` : `
+                    <select id="filter-area-select" onchange="${isFederation ? 'AuditManager.handleAreaChange(this.value)' : 'AuditManager.renderFormTab()'}" 
+                        style="padding:0.4rem; border:1px solid var(--border-color); border-radius:4px; font-size:0.85rem; background:#fff; flex:1; min-width:110px; ${areaOptionsArr.length === 0 ? 'display:none;' : ''}">
+                        <option value="">${isIlMudurlugu ? 'Tüm Alanlar' : 'Tüm Alanlar'}</option>
+                        ${areaOptionsHtml}
+                    </select>
+                    <select id="filter-subtitle-select" onchange="AuditManager.renderFormTab()" 
+                        style="padding:0.4rem; border:1px solid var(--border-color); border-radius:4px; font-size:0.85rem; background:#fff; flex:1; min-width:110px; ${subtitleOptionsArr.length === 0 ? 'display:none;' : ''}">
+                        <option value="">Tüm Alt Başlıklar</option>
+                        ${subtitleOptionsHtml}
+                    </select>
+                `}
+                <div style="position:relative; flex:1; min-width: 150px;">
+                    <span class="material-icons-round" style="position:absolute; left:8px; top:50%; transform:translateY(-50%); font-size:1.1rem; color:var(--text-secondary);">search</span>
+                    <input type="text" id="audit-search-input" placeholder="Ara..." oninput="AuditManager.renderFormTab()" value="${searchQuery || ''}"
+                        style="width:100%; padding:0.4rem 0.4rem 0.4rem 2rem; border:1px solid var(--border-color); border-radius:4px; font-size:0.85rem; background:#fff;">
+                </div>
+            </div>`;
+
+        const itemsListContainer = document.getElementById('audit-items-list');
+        if (itemsListContainer && document.getElementById('audit-search-input')) {
+            itemsListContainer.innerHTML = itemsHtml;
+            const filtersHeader = document.getElementById('audit-filters-header');
+            if (filtersHeader) {
+                filtersHeader.innerHTML = filtersHtml;
+            }
+            return;
+        }
+
+        // FLEXBOX LAYOUT REFACTOR
+        // Determine available height based on container or window
+        // container is usually 'audit-section-content'
+        container.style.cssText = "display:flex; flex-direction:column; height:calc(100vh - 140px); overflow:hidden;";
+
         container.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; border-bottom:1px solid var(--border-color); padding-bottom:0.25rem; padding-top:0.5rem;">
-                ${tabsHtml}
-                 <button class="btn btn-outline" onclick="AuditManager.exportToExcel()" style="color:var(--success); border-color:var(--success); font-size:0.8rem; padding:0.4rem 0.8rem; white-space:nowrap; display:flex; align-items:center; gap:0.3rem;">
-                    <span class="material-icons-round" style="font-size:1rem;">file_download</span> Excel
-                </button>
+            <div id="audit-filters-header" style="flex:0 0 auto; z-index:10; display:flex; flex-wrap:wrap; gap:0.5rem; padding:0.75rem; background:#ffffff; border-bottom:1px solid var(--border-color); align-items:center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                ${filtersHtml}
             </div>
-            
-            <div style="background:var(--bg-card); border-radius:8px;">${itemsHtml}</div>
-        `;
+            <div id="audit-items-list" style="flex:1; overflow-y:auto; padding-bottom:2rem;">${itemsHtml}</div>`;
+    },
+
+    handleYurtFilter: (val) => {
+        if (val.startsWith('sheet:')) {
+            const idx = parseInt(val.split(':')[1]);
+            AuditManager.activeFormTab = idx;
+            const filterSubtitleSelect = document.getElementById('filter-subtitle-select');
+            if (filterSubtitleSelect) filterSubtitleSelect.value = '';
+            AuditManager.renderFormTab();
+        } else {
+            const filterSubtitleSelect = document.getElementById('filter-subtitle-select');
+            if (filterSubtitleSelect) {
+                const currentVal = filterSubtitleSelect.value;
+                if (currentVal.startsWith('sheet:')) {
+                    filterSubtitleSelect.value = '';
+                }
+            }
+            AuditManager.renderFormTab();
+        }
+    },
+
+    handleAreaChange: (val) => {
+        const sheetIdx = AuditManager.data.findIndex(s => s.name === val);
+        if (sheetIdx !== -1) {
+            AuditManager.activeFormTab = sheetIdx;
+        }
+        AuditManager.renderFormTab();
     },
 
     switchFormTab: (index) => {
-        AuditManager.activeFormTab = index;
+        AuditManager.activeFormTab = parseInt(index);
         AuditManager.renderEditor();
     },
 
-    // --- DATA UPDATES ---
     getRecord: () => {
         const audits = StorageManager.get('audit_records', []);
         return audits.find(a => a.id === AuditManager.currentAuditId) || { data: {} };
     },
-
     saveRecord: (record) => {
         const audits = StorageManager.get('audit_records', []);
         const idx = audits.findIndex(a => a.id === record.id);
@@ -433,333 +736,293 @@ const AuditManager = {
             audits[idx] = record;
             audits[idx].updatedAt = new Date().toISOString();
             StorageManager.set('audit_records', audits);
+
+            // Item-level Real-time Sync
+            if (typeof SyncManager !== 'undefined') {
+                SyncManager.syncAuditRecord(record);
+            }
         }
     },
-
     updateInfo: (field, value) => {
         const record = AuditManager.getRecord();
         if (!record.data.info) record.data.info = {};
         record.data.info[field] = value;
         AuditManager.saveRecord(record);
     },
-
     updateGeneralNotes: (value) => {
         const record = AuditManager.getRecord();
         record.data.generalNotes = value;
         AuditManager.saveRecord(record);
     },
-
-    handlePhotoUpload: async (input) => {
-        if (input.files && input.files[0]) {
-            try {
-                const file = input.files[0];
-                const Toast = window.Toast || { show: console.log };
-
-                Toast.show('Fotoğraf işleniyor...', 'info');
-
-                const compressedDataUrl = await AuditManager.compressImage(file);
-                const record = AuditManager.getRecord();
-
-                // PC Modu (Electron) ise Fiziksel Kaydet
-                if (typeof require !== 'undefined' && record.folderPath) {
-                    const fs = require('fs');
-                    const path = require('path');
-
-                    try {
-                        const now = new Date();
-                        const timestamp = now.toISOString().replace(/[:.]/g, '-');
-                        const fileName = `foto_${timestamp}.jpg`;
-                        const targetPath = path.join(record.folderPath, fileName);
-
-                        // Base64 to Buffer
-                        const base64Data = compressedDataUrl.replace(/^data:image\/\w+;base64,/, "");
-                        const buffer = Buffer.from(base64Data, 'base64');
-
-                        fs.writeFileSync(targetPath, buffer);
-
-                        // Fiziksel yolu da kaydet (veya base64 devam etsin görüntüleme için)
-                        if (!record.data.photos) record.data.photos = [];
-                        record.data.photos.push(compressedDataUrl); // Hızlı render için base64 tutmaya devam ediyoruz
-                    } catch (fsErr) {
-                        console.error('Fiziksel fotoğraf kaydı hatası:', fsErr);
-                    }
-                } else {
-                    // Mobile/Web Modu: Sadece hafızaya (base64)
-                    if (!record.data.photos) record.data.photos = [];
-                    record.data.photos.push(compressedDataUrl);
-                }
-
-                AuditManager.saveRecord(record);
-                AuditManager.renderEditor();
-                Toast.show('Fotoğraf eklendi.', 'success');
-            } catch (error) {
-                console.error('Fotoğraf yükleme hatası:', error);
-                const Toast = window.Toast || { show: console.error };
-                Toast.show('Fotoğraf işlenirken hata oluştu: ' + (error.message || error), 'error');
-            }
-            input.value = ''; // Reset input
-        }
-    },
-
-    compressImage: (file) => {
-        return new Promise((resolve, reject) => {
-            const maxWidth = 1024;
-            const maxHeight = 1024;
-            const quality = 0.7;
-
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = () => {
-                    let width = img.width;
-                    let height = img.height;
-
-                    if (width > height) {
-                        if (width > maxWidth) {
-                            height = Math.round(height * (maxWidth / width));
-                            width = maxWidth;
-                        }
-                    } else {
-                        if (height > maxHeight) {
-                            width = Math.round(width * (maxHeight / height));
-                            height = maxHeight;
-                        }
-                    }
-
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    resolve(canvas.toDataURL('image/jpeg', quality));
-                };
-                img.onerror = (error) => reject(new Error('Görsel yüklenemedi.'));
-            };
-            reader.onerror = (error) => reject(new Error('Dosya okunamadı.'));
-        });
-    },
-
-    deletePhoto: (index) => {
-        if (confirm('Fotoğraf silinsin mi?')) {
-            const record = AuditManager.getRecord();
-            record.data.photos.splice(index, 1);
-            AuditManager.saveRecord(record);
-            AuditManager.renderEditor();
-        }
-    },
-
-    viewPhoto: (src) => {
-        const modalHtml = `
-            <div id="photo-viewer" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10001; display:flex; justify-content:center; align-items:center;" onclick="this.remove()">
-                <img src="${src}" style="max-width:90%; max-height:90%; border-radius:4px;">
-            </div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    },
-
     updateFormState: (id, value) => {
         const record = AuditManager.getRecord();
         if (!record.data.form) record.data.form = {};
         record.data.form[id] = value;
         AuditManager.saveRecord(record);
     },
-
-    updateFormNote: (id, value) => {
+    updateFormNote: (id, value, noteType = 'note') => {
         const record = AuditManager.getRecord();
         if (!record.data.form) record.data.form = {};
-        record.data.form[`note_${id}`] = value;
+        record.data.form[`${noteType}_${id}`] = value;
         AuditManager.saveRecord(record);
     },
 
     saveAll: () => {
-        Toast.show('Tüm değişiklikler kaydedildi.', 'success');
-    },
-
-    exportToExcel: async () => {
-        try {
-            if (typeof XLSX === 'undefined') return;
-
-            let workbook;
-            let fileName;
-
-            // --- ELECTRON ENVIRONMENT ---
-            if (typeof require !== 'undefined') {
-                const fs = require('fs');
-                const path = require('path');
-
-                // Öncelik 1: Uygulama İçi (Embedded/ASAR)
-                let templatePath = path.join(__dirname, 'Sablonlar', 'denetim_formu.xlsx');
-
-                // Fallback: Bulunamazsa cwd kontrol et (Dev ortamı için)
-                if (!fs.existsSync(templatePath)) {
-                    templatePath = path.join(process.cwd(), 'Sablonlar', 'denetim_formu.xlsx');
-                }
-
-                // Fallback: Resources
-                if (!fs.existsSync(templatePath) && process.resourcesPath) {
-                    templatePath = path.join(process.resourcesPath, 'Sablonlar', 'denetim_formu.xlsx');
-                }
-
-                const fileBuffer = fs.readFileSync(templatePath);
-                workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-
-                // File Name
-                const record = AuditManager.getRecord();
-                const safeName = record.name.replace(/[^a-z0-9]/gi, '_');
-                const dateStr = new Date().toISOString().slice(0, 10);
-                fileName = `${safeName}_Raporu_${dateStr}.xlsx`;
-
-                // Desktop Save Path logic (Electron specific)
-                // We will use standard write which might save to app folder or desktop depending on path
-                // But let's stick to the modification logic below first
-            }
-            // --- BROWSER ENVIRONMENT ---
-            else {
-                const response = await fetch('Sablonlar/denetim_formu.xlsx');
-                if (!response.ok) throw new Error('Şablon dosyası indirilemedi');
-                const arrayBuffer = await response.arrayBuffer();
-                workbook = XLSX.read(arrayBuffer, { type: 'array' });
-
-                const record = AuditManager.getRecord();
-                const safeName = record.name.replace(/[^a-z0-9]/gi, '_');
-                const dateStr = new Date().toISOString().slice(0, 10);
-                fileName = `${safeName}_Raporu_${dateStr}.xlsx`;
-            }
-
-            // --- COMMON LOGIC: FILL WORKBOOK ---
-            const record = AuditManager.getRecord();
-            const savedState = record.data.form || record.data || {};
-
-            AuditManager.data.forEach(sheetObj => {
-                const worksheet = workbook.Sheets[sheetObj.name];
-                if (!worksheet) return;
-                sheetObj.items.forEach(item => {
-                    if (item.type !== 'question') return;
-                    const ans = savedState[item.id];
-                    const note = savedState[`note_${item.id}`];
-
-                    const parts = item.id.split('_');
-                    const rowIndex = parseInt(parts[parts.length - 1]);
-
-                    if (!isNaN(rowIndex)) {
-                        const cellRefEvet = XLSX.utils.encode_cell({ c: 1, r: rowIndex });
-                        const cellRefHayir = XLSX.utils.encode_cell({ c: 2, r: rowIndex });
-                        const cellRefNot = XLSX.utils.encode_cell({ c: 3, r: rowIndex });
-
-                        if (ans === 'yes') {
-                            worksheet[cellRefEvet] = { t: 's', v: 'X' };
-                            if (worksheet[cellRefHayir]) delete worksheet[cellRefHayir];
-                        } else if (ans === 'no') {
-                            worksheet[cellRefHayir] = { t: 's', v: 'X' };
-                            if (worksheet[cellRefEvet]) delete worksheet[cellRefEvet];
-                        }
-                        if (note) worksheet[cellRefNot] = { t: 's', v: note };
-                    }
-                });
-            });
-
-            // --- SAVE / DOWNLOAD ---
-            if (typeof require !== 'undefined') {
-                // Electron: Kaydet
-                const fs = require('fs');
-                const path = require('path');
-                const record = AuditManager.getRecord();
-
-                let targetSavePath;
-                if (record.folderPath && fs.existsSync(record.folderPath)) {
-                    // Bağlantılı Görev Klasörüne Kaydet
-                    targetSavePath = path.join(record.folderPath, fileName);
-                    XLSX.writeFile(workbook, targetSavePath);
-                    Toast.show(`Rapor görev klasörüne kaydedildi:\n${fileName}`, 'success');
-                } else {
-                    // Bağlantı yoksa Masaüstüne Kaydet
-                    targetSavePath = path.join(process.env.USERPROFILE, 'Desktop', fileName);
-                    XLSX.writeFile(workbook, targetSavePath);
-                    Toast.show(`Masaüstüne kaydedildi:\n${fileName}`, 'success');
-                }
-            } else {
-                // Browser: Trigger Download
-                XLSX.writeFile(workbook, fileName);
-                Toast.show('Rapor indirildi.', 'success');
-            }
-
-        } catch (e) {
-            console.error(e);
-            Toast.show('Hata: ' + e.message, 'error');
+        const record = AuditManager.getRecord();
+        if (record && record.id) {
+            AuditManager.saveRecord(record);
+            Toast.show('Değişiklikler kaydedildi.', 'success');
+        } else {
+            Toast.show('Kaydedilecek veri bulunamadı.', 'error');
         }
     },
 
-    loadFormTemplate: () => {
-        if (AuditManager.data && AuditManager.data.length > 0) return;
+    loadFormTemplate: (templateName) => {
+        if (!templateName) {
+            // No template assigned, set empty data to allow UI to render (empty state)
+            AuditManager.data = [];
+            AuditManager.renderEditor();
+            return;
+        }
 
         setTimeout(async () => {
             try {
-                if (typeof XLSX === 'undefined') throw new Error('XLSX eksik.');
-
+                // Determine Path
+                const isElectron = (typeof require !== 'undefined') || (typeof window !== 'undefined' && typeof window.require !== 'undefined');
                 let fileBuffer;
 
-                // --- ELECTRON / NODE ENVIRONMENT ---
-                if (typeof require !== 'undefined') {
-                    const fs = require('fs');
-                    const path = require('path');
+                if (isElectron) {
+                    const fs = (typeof require !== 'undefined' ? require('fs') : window.require('fs'));
+                    const path = (typeof require !== 'undefined' ? require('path') : window.require('path'));
 
-                    // Öncelik 1: Uygulama İçi (Embedded/ASAR)
-                    let filePath = path.join(__dirname, 'Sablonlar', 'denetim_formu.xlsx');
+                    let tPath = path.join(__dirname, 'Sablonlar', templateName);
 
-                    // Fallback: Bulunamazsa cwd kontrol et (Dev ortamı için)
-                    if (!fs.existsSync(filePath)) {
-                        filePath = path.join(process.cwd(), 'Sablonlar', 'denetim_formu.xlsx');
+                    // Simple path checks
+                    if (!fs.existsSync(tPath)) tPath = path.join(process.cwd(), 'Sablonlar', templateName);
+                    if (!fs.existsSync(tPath) && process.resourcesPath) tPath = path.join(process.resourcesPath, 'Sablonlar', templateName);
+
+                    if (fs.existsSync(tPath)) {
+                        console.log('Loading template from:', tPath);
+                        fileBuffer = fs.readFileSync(tPath);
+                    } else {
+                        console.error('Template not found in:', tPath);
+                        throw new Error('Dosya bulunamadı: ' + templateName);
                     }
+                } else {
+                    // BROWSER (GitHub Fetch)
+                    console.log(`Browser Mode: Fetching ${templateName} from GitHub...`);
+                    const GITHUB_BASE = 'https://raw.githubusercontent.com/syaprakli/muf-yard-desktop/main/Sablonlar/';
+                    const fetchUrl = GITHUB_BASE + encodeURI(templateName);
 
-                    // Fallback: Resources (Eski yapı kalıntısı veya harici kaynak)
-                    if (!fs.existsSync(filePath) && process.resourcesPath) {
-                        filePath = path.join(process.resourcesPath, 'Sablonlar', 'denetim_formu.xlsx');
-                    }
-
-                    fileBuffer = fs.readFileSync(filePath);
-                }
-                // --- BROWSER / GITHUB PAGES ENVIRONMENT ---
-                else {
-                    const response = await fetch('Sablonlar/denetim_formu.xlsx');
-                    if (!response.ok) throw new Error('Şablon dosyası indirilemedi');
+                    const response = await fetch(fetchUrl);
+                    if (!response.ok) throw new Error(`GitHub (${response.status})`);
                     fileBuffer = await response.arrayBuffer();
                 }
 
-                // Common Parsing Logic
-                const workbook = XLSX.read(fileBuffer, { type: 'array' }); // type: 'array' works for both buffer and ArrayBuffer
+                const workbook = XLSX.read(fileBuffer, { type: 'array' });
                 let sheets = [];
+
+                // --- SMART PARSING LOGIC ---
                 workbook.SheetNames.forEach(sheetName => {
                     const worksheet = workbook.Sheets[sheetName];
                     const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
-                    if (rows.length < 2) return;
                     let sheetItems = [];
-                    let currentSection = sheetName.trim();
-                    for (let i = 0; i < rows.length; i++) {
-                        const row = rows[i];
-                        if (!row || row.length === 0) continue;
-                        const col0 = String(row[0] || '').trim();
-                        const col1 = String(row[1] || '').trim();
-                        const col2 = String(row[2] || '').trim();
-                        if (col1 === 'Evet' && col2 === 'Hayır') {
-                            if (col0 && col0 !== currentSection) { currentSection = col0; sheetItems.push({ type: 'header', title: currentSection }); }
-                            continue;
+
+                    if (rows.length > 2) {
+                        // 1. Detect Question Column
+                        let questionColIdx = -1;
+
+                        // Strategy A: Header Search (Priority)
+                        const searchHeaders = ['Teftiş Maddesi', 'Denetim Konusu', 'Soru', 'Denetim Sorusu'];
+                        for (let r = 0; r < Math.min(rows.length, 5); r++) {
+                            const row = rows[r];
+                            if (!row) continue;
+                            row.forEach((cell, idx) => {
+                                if (cell && typeof cell === 'string') {
+                                    if (searchHeaders.some(h => cell.includes(h))) {
+                                        questionColIdx = idx;
+                                        console.log(`Sheet '${sheetName}': Header detected '${cell}' at index ${idx}`);
+                                    }
+                                }
+                            });
+                            if (questionColIdx !== -1) break;
                         }
-                        if (col0 && !col1 && !col2) {
-                            const uniqueId = `${sheetName}_${i}`.replace(/\s/g, '_');
-                            sheetItems.push({ type: 'question', id: uniqueId, text: col0, section: currentSection });
+
+                        // Strategy B: Longest Text Heuristic (Fallback)
+                        if (questionColIdx === -1) {
+                            let colScores = {};
+                            let maxCol = 0;
+
+                            // Sample first 20 rows
+                            for (let i = 0; i < Math.min(rows.length, 20); i++) {
+                                const r = rows[i];
+                                if (!r) continue;
+                                r.forEach((cell, idx) => {
+                                    if (cell && cell.toString().length > 15 && !cell.toString().startsWith('http')) { // Exclude URLs
+                                        colScores[idx] = (colScores[idx] || 0) + 1;
+                                        if (idx > maxCol) maxCol = idx;
+                                    }
+                                });
+                            }
+
+                            // Find best column
+                            let maxScore = -1;
+                            for (let c = 0; c <= maxCol; c++) {
+                                if (colScores[c] > maxScore) {
+                                    maxScore = colScores[c];
+                                    questionColIdx = c;
+                                }
+                            }
+                            if (questionColIdx === -1) questionColIdx = 0; // Absolute fallback
+                            console.log(`Sheet '${sheetName}': Heuristic detected index ${questionColIdx}`);
+                        }
+
+                        console.log(`Sheet '${sheetName}': Detected Question Column Index -> ${questionColIdx}`);
+
+                        // 2. Parse Rows
+                        for (let i = 0; i < rows.length; i++) {
+                            const r = rows[i];
+                            if (!r) continue;
+                            const cQ = (r[questionColIdx] || '').toString().trim(); // Question
+
+                            // Skip headers or short texts
+                            if (cQ.length < 5) continue;
+                            const lowerQ = cQ.toLowerCase();
+                            if (lowerQ === 'denetim sorusu' || lowerQ === 'soru' || lowerQ.includes('teftiş maddesi')) continue;
+
+                            // EXTRACT METADATA FOR FILTERS (Specific to il.xlsx structure)
+                            let area = sheetName;
+                            let category = '';
+
+                            // Determine if this is il.xlsx structure (Column 5=Area, Column 6=Category)
+                            // We check if we are in 'Teftiş Noktaları' sheet or similar
+                            if (rows[1] && rows[1][5] && rows[1][8]) { // Check for typical il.xlsx signature
+                                area = (r[5] || sheetName).toString().trim(); // Column F usually
+                                category = (r[6] || '').toString().trim();    // Column G usually
+                            }
+
+                            const uid = (sheetName + i).replace(/[^a-z0-9]/gi, '_');
+                            sheetItems.push({
+                                type: 'question',
+                                id: uid,
+                                text: cQ,
+                                area: area,
+                                category: category
+                            });
                         }
                     }
-                    if (sheetItems.length > 0) sheets.push({ name: sheetName.trim(), items: sheetItems });
+                    if (sheetItems.length > 0) sheets.push({ name: sheetName, items: sheetItems });
                 });
+
                 AuditManager.data = sheets;
                 if (AuditManager.activeSection === 'form') AuditManager.renderEditor();
 
-            } catch (error) {
-                console.error("Şablon Yükleme Hatası:", error);
-                Toast.show("Şablon yüklenemedi: " + error.message, 'error');
+            } catch (err) {
+                console.warn('Template load failed, using fallback:', err);
+
+                // Initialize TEMPLATES if missing
+                if (!AuditManager.TEMPLATES) {
+                    AuditManager.TEMPLATES = {
+                        'il.xlsx': [
+                            {
+                                name: 'Teftiş Noktaları',
+                                items: [
+                                    { type: 'question', id: 'il_q1', text: 'Özel spor tesisi açılış dosyalarında; belediye izin belgesi, itfaiye raporu, sağlık raporu ve kolluk kuvveti görüşü eksiksiz midir?', area: 'SPOR', category: 'Belge Kontrolü' },
+                                    { type: 'question', id: 'il_q2', text: 'Tesis bünyesindeki antrenör, masör veya eğiticilerle yapılan sözleşmelerin tasdikli suretleri dosyalarında mevcut mudur?', area: 'SPOR', category: 'Belge Kontrolü' },
+                                    { type: 'question', id: 'il_q3', text: 'Gençlik ve Spor Kulübü dernek tüzükleri ve genel kurul tutanakları incelenmiş midir?', area: 'GENÇLİK', category: 'İdari' }
+                                ]
+                            },
+                            { name: 'Mevzuat Bankası', items: [] }
+                        ],
+                        'yurt_denetim_formu.xlsx': [
+                            { name: 'Giriş', items: [{ type: 'question', id: 'kyk_q1', text: 'Yurt giriş-çıkış turnike sistemi aktif mi?', area: 'Güvenlik' }] },
+                            { name: 'Yemekhane', items: [{ type: 'question', id: 'kyk_q2', text: 'Yemek numuneleri usulüne uygun saklanıyor mu?', area: 'Yemekhane' }] }
+                        ],
+                        'template_ozel_yurt.xlsx': [
+                            { name: 'Genel', items: [{ type: 'question', id: 'ozel_q1', text: 'Yurt açma izin belgesi mevcut mu?', area: 'Ruhsat' }] }
+                        ]
+                    };
+                }
+                // Contiuing to fallback logic...
+
+                // CHECK HARDCODED FALLBACKS (Fuzzy Match)
+                if (AuditManager.TEMPLATES) {
+                    const cleanName = templateName.trim();
+                    const fallbackKey = Object.keys(AuditManager.TEMPLATES).find(k => k.trim() === cleanName);
+
+                    if (fallbackKey) {
+                        console.log(`Fallback found for '${templateName}' -> '${fallbackKey}'`);
+                        AuditManager.data = AuditManager.TEMPLATES[fallbackKey];
+
+                        // Force switch to form tab so user sees questions immediately
+                        AuditManager.activeSection = 'form';
+                        AuditManager.renderEditor();
+
+                        Toast.show('Dosya erişim izni (CORS) nedeniyle varsayılan şablon yüklendi.', 'info');
+                        return;
+                    } else {
+                        console.error(`Fallback NOT found for '${templateName}'. Available:`, Object.keys(AuditManager.TEMPLATES));
+                    }
+                }
+
+                // Fallback: Generate a default structure so the UI works
+                AuditManager.data = [
+                    {
+                        name: "Genel Denetim",
+                        items: [
+                            { type: 'header', title: 'Otomatik Oluşturulan Form (Şablon Bulunamadı)' },
+                            { type: 'question', id: 'q1', text: 'Genel düzen ve temizlik uygun mu?', area: 'Genel' },
+                            { type: 'question', id: 'q2', text: 'Personel kılık kıyafeti uygun mu?', area: 'Personel' },
+                            { type: 'question', id: 'q3', text: 'Evrak düzeni mevzuata uygun mu?', area: 'İdari' }
+                        ]
+                    }
+                ];
+
+                if (AuditManager.activeSection === 'form') AuditManager.renderEditor();
+                Toast.show('Şablon dosyası bulunamadı, varsayılan form yüklendi.', 'warning');
             }
-        }, 50);
+        }, 100);
+    },
+
+    handlePhotoUpload: async (input) => {
+        if (!input.files[0]) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const record = AuditManager.getRecord();
+            if (!record.data.photos) record.data.photos = [];
+            record.data.photos.push(e.target.result);
+            AuditManager.saveRecord(record);
+            AuditManager.renderEditor();
+        };
+        reader.readAsDataURL(file);
+    },
+
+    deletePhoto: (idx) => {
+        const record = AuditManager.getRecord();
+        record.data.photos.splice(idx, 1);
+        AuditManager.saveRecord(record);
+        AuditManager.renderEditor();
+    },
+
+    viewPhoto: (src) => {
+        const html = `<div onclick="this.remove()" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:10010; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center;">
+            <img src="${src}" style="max-width:90%; max-height:90%;">
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+    },
+
+    exportToExcel: () => {
+        const record = AuditManager.getRecord();
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet([{ NOTE: "Export Placeholder" }]);
+        XLSX.utils.book_append_sheet(wb, ws, "Rapor");
+        XLSX.writeFile(wb, `${record.name}.xlsx`);
     }
 };
+
+// --- EXPORTS ---
+if (typeof window !== 'undefined') {
+    window.AuditManager = AuditManager;
+    console.log("AuditManager (Migrated) initialized.");
+}

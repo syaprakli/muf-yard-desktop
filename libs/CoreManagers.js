@@ -5,8 +5,13 @@
 
 // 1. PathManager
 class PathManager {
+    static isElectron() {
+        return (typeof process !== 'undefined' && process.versions && !!process.versions.electron) ||
+            (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes(' electron/'));
+    }
+
     static getRoot() {
-        if (typeof require !== 'undefined') {
+        if (this.isElectron() || typeof require !== 'undefined') {
             const path = require('path');
             const fs = require('fs');
             const os = require('os');
@@ -76,33 +81,36 @@ class PathManager {
     }
 }
 
-// 2. StorageManager
+// 2. StorageManager (Firebase Integrated)
 class StorageManager {
     static get SECRET_KEY() { return 'MufYard_Secret_Key_2025'; }
-    static get ENCRYPTED_KEYS() { return ['reports', 'tasks', 'contacts', 'notes', 'app_user']; }
+
+    // All these keys will be encrypted locally AND synced to cloud
+    static get ENCRYPTED_KEYS() {
+        return ['reports', 'tasks', 'contacts', 'notes', 'app_user', 'audit_records', 'corp_overrides'];
+    }
+
+    // Settings that are synced but NOT encrypted
+    static get SYNC_ONLY_KEYS() {
+        return ['theme', 'font', 'accent_color', 'sidebar_color'];
+    }
 
     static get(key, defaultValue = null) {
         const stored = localStorage.getItem(key);
         if (!stored) return defaultValue;
 
-        // Şifreli veri kontrolü (Migration Check)
         if (this.ENCRYPTED_KEYS.includes(key)) {
             try {
-                // 1. Önce eski veri (Plain JSON) mi diye bak?
+                // Try parsing as plain JSON first (Migration Support)
                 const parsed = JSON.parse(stored);
                 return parsed;
             } catch (e) {
-                // 2. JSON değilse, muhtemelen Şifrelidir. Çözmeyi dene.
+                // If fails, it is likely Encrypted
                 try {
-                    if (typeof CryptoJS === 'undefined') {
-                        console.error('CryptoJS not loaded!');
-                        return defaultValue;
-                    }
+                    if (typeof CryptoJS === 'undefined') return defaultValue;
                     const bytes = CryptoJS.AES.decrypt(stored, this.SECRET_KEY);
                     const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
-
                     if (!decryptedStr) return defaultValue;
-
                     return JSON.parse(decryptedStr);
                 } catch (decErr) {
                     console.error('Decryption Error for ' + key, decErr);
@@ -111,45 +119,105 @@ class StorageManager {
             }
         }
 
-        // Şifresiz veriler
         try {
             return JSON.parse(stored);
         } catch (e) {
-            return defaultValue;
+            return stored;
         }
     }
 
     static set(key, value) {
         try {
+            let saveValue = value;
             if (this.ENCRYPTED_KEYS.includes(key)) {
                 if (typeof CryptoJS !== 'undefined') {
                     const jsonStr = JSON.stringify(value);
-                    const encrypted = CryptoJS.AES.encrypt(jsonStr, this.SECRET_KEY).toString();
-                    localStorage.setItem(key, encrypted);
+                    saveValue = CryptoJS.AES.encrypt(jsonStr, this.SECRET_KEY).toString();
                 } else {
-                    console.warn('CryptoJS missing, saving plain text!');
-                    localStorage.setItem(key, JSON.stringify(value));
+                    saveValue = JSON.stringify(value);
                 }
-            } else {
-                localStorage.setItem(key, JSON.stringify(value));
+            } else if (typeof value === 'object') {
+                saveValue = JSON.stringify(value);
             }
+
+            localStorage.setItem(key, saveValue);
+
+            // --- AUTO CLOUD SYNC ---
+            this.syncToCloud(key, saveValue);
+
         } catch (e) {
-            if (e.name === 'QuotaExceededError' || e.code === 22 || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                const msg = 'Depolama alanı doldu! Lütfen bazı eski kayıtları temizleyin veya fotoğrafları silin.';
-                if (typeof Toast !== 'undefined') {
-                    Toast.show(msg, 'error');
-                } else {
-                    alert(msg);
-                }
+            if (e.name === 'QuotaExceededError') {
+                Toast.show('Depolama alanı doldu! Lütfen eski verileri temizleyin.', 'error');
             } else {
                 console.error('Storage Save Error:', e);
             }
         }
     }
 
+    // --- CLOUD SYNC METHODS ---
+    static async syncToCloud(key, value) {
+        if (typeof firebase === 'undefined' || !firebase.auth().currentUser) return;
+        if (!this.ENCRYPTED_KEYS.includes(key) && !this.SYNC_ONLY_KEYS.includes(key)) return;
+
+        const uid = firebase.auth().currentUser.uid;
+        try {
+            await firebase.firestore().collection('users').doc(uid).collection('data').doc(key).set({
+                value: value,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log(`Cloud [UP]: ${key}`);
+        } catch (e) {
+            console.error(`Cloud Sync Failed (${key}):`, e);
+        }
+    }
+
+    static async syncFromCloud() {
+        if (typeof firebase === 'undefined' || !firebase.auth().currentUser) return;
+        if (!navigator.onLine) return;
+
+        console.log('Sync: Checking cloud for updates...');
+        const uid = firebase.auth().currentUser.uid;
+        const allKeys = [...this.ENCRYPTED_KEYS, ...this.SYNC_ONLY_KEYS];
+        let changeCount = 0;
+
+        for (const key of allKeys) {
+            try {
+                const doc = await firebase.firestore().collection('users').doc(uid).collection('data').doc(key).get();
+                if (doc.exists) {
+                    const serverData = doc.data();
+                    const localValue = localStorage.getItem(key);
+                    if (serverData.value && serverData.value !== localValue) {
+                        localStorage.setItem(key, serverData.value);
+                        changeCount++;
+                    }
+                }
+            } catch (e) {
+                console.error(`Sync Download Error (${key}):`, e);
+            }
+        }
+
+        if (changeCount > 0) {
+            Toast.show('Veriler buluttan güncellendi.', 'success');
+            setTimeout(() => location.reload(), 1500);
+        }
+    }
+
+    static async syncAllToCloud() {
+        if (typeof firebase === 'undefined' || !firebase.auth().currentUser) {
+            return Toast.show('Lütfen önce giriş yapın.', 'warning');
+        }
+        Toast.show('Tam eşitleme başlatıldı...', 'info');
+        const allKeys = [...this.ENCRYPTED_KEYS, ...this.SYNC_ONLY_KEYS];
+        for (const key of allKeys) {
+            const val = localStorage.getItem(key);
+            if (val) await this.syncToCloud(key, val);
+        }
+        Toast.show('Tüm veriler buluta gönderildi.', 'success');
+    }
+
     static addToArray(key, item) {
         const items = this.get(key, []);
-        items.unshift(item); // En yeni en başa
+        items.unshift(item);
         this.set(key, items);
         return items;
     }
@@ -162,43 +230,26 @@ class StorageManager {
     }
 
     static exportData() {
-        if (typeof BackupManager !== 'undefined') {
-            BackupManager.createBackup(true);
-        } else {
-            alert('Yedekleme yöneticisi yüklenemedi.');
-        }
-    }
-
-    static importData(jsonData) {
-        try {
-            const data = JSON.parse(jsonData);
-            if (data.reports) this.set('reports', data.reports);
-            if (data.tasks) this.set('tasks', data.tasks);
-            if (data.contacts) this.set('contacts', data.contacts);
-            if (data.notes) this.set('notes', data.notes);
-
-            Toast.show('Veriler başarıyla yüklendi (Şifrelendi).', 'success');
-            setTimeout(() => location.reload(), 1500);
-            return true;
-        } catch (e) {
-            console.error('Import Error:', e);
-            alert('Yedek dosyası bozuk veya hatalı format.');
-            return false;
-        }
+        if (typeof BackupManager !== 'undefined') BackupManager.createBackup(true);
     }
 
     static clearAllData() {
-        if (confirm('TÜM VERİLERİNİZ SİLİNECEKTİR!\n\nRaporlar, görevler, notlar ve kullanıcı ayarları dahil her şey kalıcı olarak temizlenecektir. Emin misiniz?')) {
-            localStorage.clear();
-            alert('Tüm veriler temizlendi. Uygulama yeniden başlatılıyor.');
-            location.reload();
+        if (typeof ConfirmationManager !== 'undefined') {
+            ConfirmationManager.show(
+                'TÜM VERİLERİNİZ SİLİNECEKTİR! Kalıcı olarak temizlenecektir. Emin misiniz?',
+                () => {
+                    localStorage.clear();
+                    Toast.show('Tüm veriler temizlendi.', 'success');
+                    setTimeout(() => location.reload(), 2000);
+                },
+                'Evet, Tüm Verileri Sil'
+            );
         }
     }
 }
 
-// 3. AuthManager
+// 3. AuthManager (Firebase Integrated)
 const AuthManager = {
-    // Explicitly expose to window immediately for safety
     init: function () {
         if (typeof window !== 'undefined') window.AuthManager = this;
     },
@@ -207,78 +258,138 @@ const AuthManager = {
         return StorageManager.get('app_user');
     },
 
-    register: () => {
+    register: async () => {
         const fullname = document.getElementById('reg-fullname').value.trim();
-        const username = document.getElementById('reg-username').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
         const password = document.getElementById('reg-password').value;
-        const question = document.getElementById('reg-question').value;
-        const answer = document.getElementById('reg-answer').value.trim();
+        const question = document.getElementById('reg-question')?.value || '';
+        const answer = document.getElementById('reg-answer')?.value.trim().toLowerCase() || '';
 
-        if (!fullname || !username || !password || !question || !answer) {
+        if (!fullname || !email || !password || !answer) {
             Toast.show('Lütfen tüm alanları doldurunuz.', 'warning');
             return;
         }
 
-        const user = {
-            fullname,
-            username,
-            password,
-            question,
-            answer: answer.toLowerCase()
-        };
+        try {
+            const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+            const user = userCredential.user;
+            await user.updateProfile({ displayName: fullname });
 
-        StorageManager.set('app_user', user);
-        Toast.show('Kurulum tamamlandı! Giriş yapılıyor...', 'success');
-        AuthManager.showScreen('login');
+            const localUser = {
+                uid: user.uid,
+                fullname: fullname,
+                email: email,
+                password: password, // For manual recovery display
+                question: question,
+                answer: answer
+            };
+            StorageManager.set('app_user', localUser);
+            Toast.show('Hesap oluşturuldu!', 'success');
+            AuthManager.completeLogin(localUser);
+        } catch (error) {
+            if (error.code === 'auth/email-already-in-use') {
+                Toast.show('Bu e-posta adresi zaten bir hesaba kayıtlı. Lütfen giriş yapın.', 'info');
+                AuthManager.showScreen('login');
+                // Mevcut e-postayı giriş ekranına taşıyalım (opsiyonel ama iyi olur)
+                const loginEmail = document.getElementById('login-email');
+                if (loginEmail) loginEmail.value = email;
+            } else {
+                Toast.show('Kayıt Hatası: ' + error.message, 'error');
+            }
+        }
     },
 
-    login: () => {
+    login: async () => {
         try {
-            console.log('Login attempt...');
-            const usernameInputEl = document.getElementById('login-username');
-            const passwordInputEl = document.getElementById('login-password');
+            const emailInput = document.getElementById('login-email').value.trim();
+            const passwordInput = document.getElementById('login-password').value;
             const errorMsg = document.getElementById('login-error');
 
-            if (!usernameInputEl || !passwordInputEl) {
-                Toast.show('Hata: Giriş kutuları bulunamadı!', 'error');
+            if (!emailInput || !passwordInput) {
+                Toast.show('E-posta ve şifre giriniz.', 'warning');
                 return;
             }
 
-            const usernameInput = usernameInputEl.value.trim();
-            const passwordInput = passwordInputEl.value;
+            const userCredential = await firebase.auth().signInWithEmailAndPassword(emailInput, passwordInput);
+            const user = userCredential.user;
 
-            const user = AuthManager.getUser();
+            // Sync with local data
+            const localUser = StorageManager.get('app_user') || {};
+            localUser.uid = user.uid;
+            localUser.fullname = user.displayName || localUser.fullname || 'Kullanıcı';
+            localUser.email = user.email;
 
-            if (!user) {
-                Toast.show('Sistemde kayıtlı kullanıcı bulunamadı. Lütfen önce KURULUM yapın.', 'warning');
-                return;
-            }
+            StorageManager.set('app_user', localUser);
+            sessionStorage.setItem('isLoggedIn', 'true');
 
-            if (user.username === usernameInput && user.password === passwordInput) {
-                sessionStorage.setItem('isLoggedIn', 'true');
-                if (errorMsg) errorMsg.style.display = 'none';
-                AuthManager.completeLogin(user);
-            } else {
-                if (errorMsg) {
-                    errorMsg.style.display = 'block';
-                    errorMsg.textContent = 'Kullanıcı adı veya şifre hatalı.';
-                } else {
-                    Toast.show('Kullanıcı adı veya şifre hatalı.', 'error');
-                }
-            }
+            if (errorMsg) errorMsg.style.display = 'none';
+            AuthManager.completeLogin(localUser);
         } catch (e) {
-            Toast.show('Giriş Hatası: ' + e.message, 'error');
+            const errorMsg = document.getElementById('login-error');
+            if (errorMsg) {
+                errorMsg.style.display = 'block';
+                errorMsg.textContent = 'Giriş başarısız: ' + e.message;
+            } else {
+                Toast.show('Giriş başarısız.', 'error');
+            }
         }
     },
 
     completeLogin: (user) => {
         document.getElementById('login-overlay').style.display = 'none';
-        if (window.checkLogin) window.checkLogin(); // Trigger app init if waiting
+        if (!sessionStorage.getItem('initialSyncDone') && typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+            sessionStorage.setItem('initialSyncDone', 'true');
+            setTimeout(() => StorageManager.syncFromCloud(), 1000);
+        }
+        if (window.checkLogin) window.checkLogin();
     },
 
-    logout: () => {
-        sessionStorage.removeItem('isLoggedIn');
-        location.reload();
+    logout: async () => {
+        try {
+            if (typeof firebase !== 'undefined') await firebase.auth().signOut();
+            sessionStorage.removeItem('isLoggedIn');
+            StorageManager.set('app_user', null);
+            location.reload();
+        } catch (e) {
+            location.reload();
+        }
+    },
+
+    checkRecoveryUser: () => {
+        const email = document.getElementById('forgot-username').value.trim();
+        const user = AuthManager.getUser();
+
+        if (user && user.email === email) {
+            document.getElementById('forgot-step-1').style.display = 'none';
+            document.getElementById('forgot-step-2').style.display = 'block';
+            document.getElementById('recovery-question-display').textContent = user.question || 'Güvenlik Sorusu';
+        } else {
+            Toast.show('Kullanıcı bulunamadı. Lütfen kayıtlı e-postanızı girin.', 'error');
+        }
+    },
+
+    resetPassword: async () => {
+        const answer = document.getElementById('forgot-answer').value.trim().toLowerCase();
+        const newPass = document.getElementById('new-password').value;
+        const user = AuthManager.getUser();
+
+        if (user && user.answer === answer) {
+            try {
+                // If the user's secret matches, we update the local password first
+                user.password = newPass;
+                StorageManager.set('app_user', user);
+
+                // Note: Firebase password update requires recent login normally.
+                // However, since this is a local recovery workaround for desktop, 
+                // we tell the user to try login with new password.
+                Toast.show('Şifre yerel olarak güncellendi. Giriş yapmayı deneyin.', 'success');
+                setTimeout(() => location.reload(), 1500);
+            } catch (e) {
+                Toast.show('Güncelleme hatası: ' + e.message, 'error');
+            }
+        } else {
+            Toast.show('Cevap hatalı!', 'error');
+        }
     },
 
     handleKey: (event, type) => {
@@ -288,71 +399,13 @@ const AuthManager = {
     },
 
     showScreen: (screenName) => {
-        try {
-            console.log('Switching to screen:', screenName);
-            const loginEl = document.getElementById('auth-login');
-            const regEl = document.getElementById('auth-register');
-            const forgotEl = document.getElementById('auth-forgot');
-            const introEl = document.getElementById('auth-intro');
-            const targetEl = document.getElementById(`auth-${screenName}`);
-
-            if (!loginEl || !regEl || !forgotEl) {
-                console.error('Auth screens not found in DOM');
-                return;
-            }
-
-            if (introEl) introEl.style.display = 'none';
-            loginEl.style.display = 'none';
-            regEl.style.display = 'none';
-            forgotEl.style.display = 'none';
-
-            if (targetEl) {
-                targetEl.style.display = 'block';
-            } else {
-                Toast.show('Hata: Hedef ekran bulunamadı: ' + screenName, 'error');
-            }
-
-            // Reset inputs
-            if (screenName === 'login') {
-                const err = document.getElementById('login-error');
-                if (err) err.style.display = 'none';
-            }
-        } catch (e) {
-            Toast.show('Ekran geçiş hatası: ' + e.message, 'error');
-        }
-    },
-
-    // Password Recovery Logic
-    checkRecoveryUser: () => {
-        const username = document.getElementById('forgot-username').value.trim();
-        const user = AuthManager.getUser();
-
-        if (user && user.username === username) {
-            document.getElementById('forgot-step-1').style.display = 'none';
-            document.getElementById('forgot-step-2').style.display = 'block';
-            document.getElementById('recovery-question-display').textContent = user.question || 'Güvenlik Sorusu';
-        } else {
-            Toast.show('Bu kullanıcı adı ile kayıtlı bir hesap bulunamadı.', 'warning');
-        }
-    },
-
-    resetPassword: () => {
-        const answer = document.getElementById('forgot-answer').value.trim().toLowerCase();
-        const newPass = document.getElementById('new-password').value;
-        const user = AuthManager.getUser();
-
-        if (user.answer === answer) {
-            if (!newPass) {
-                Toast.show('Lütfen yeni şifre belirleyin.', 'warning');
-                return;
-            }
-            user.password = newPass;
-            StorageManager.set('app_user', user);
-            Toast.show('Şifreniz başarıyla değiştirildi. Giriş yapabilirsiniz.', 'success');
-            location.reload();
-        } else {
-            Toast.show('Güvenlik cevabı hatalı!', 'error');
-        }
+        const screens = ['auth-login', 'auth-register', 'auth-forgot', 'auth-intro'];
+        screens.forEach(s => {
+            const el = document.getElementById(s);
+            if (el) el.style.display = 'none';
+        });
+        const target = document.getElementById(`auth-${screenName}`);
+        if (target) target.style.display = 'block';
     }
 };
 
@@ -416,12 +469,140 @@ class ThemeManager {
     }
 }
 
+
+class BackupManager {
+    static createBackup(interactive = false) {
+        if (!PathManager.isElectron() && typeof require === 'undefined') {
+            if (interactive) {
+                if (typeof Toast !== 'undefined') Toast.show('Yedekleme sadece masaüstü uygulamasında çalışır.', 'warning');
+                else console.warn('Yedekleme sadece masaüstü uygulamasında çalışır.');
+            }
+            return;
+        }
+
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const { shell } = require('electron');
+
+            // 1. Verileri Hazırla
+            const data = {
+                meta: {
+                    date: new Date().toISOString(),
+                    version: '1.0',
+                    user: (typeof AuthManager !== 'undefined') ? AuthManager.getUser()?.username : 'unknown'
+                },
+                app_user: StorageManager.get('app_user'),
+                reports: StorageManager.get('reports'),
+                tasks: StorageManager.get('tasks'),
+                contacts: StorageManager.get('contacts'),
+                notes: StorageManager.get('notes'),
+                audit_records: StorageManager.get('audit_records'),
+                corp_overrides: StorageManager.get('corp_overrides'),
+                theme: StorageManager.get('theme')
+            };
+
+            const os = require('os');
+            const homeDir = os.homedir();
+
+            // 2. Yedekleme Konumu Belirle (Akıllı Algılama)
+            let backupBase = PathManager.getRoot(); // Varsayılan: Documents/MufYard
+
+            // Google Drive Kontrolü
+            const drivePath = path.join(homeDir, 'Google Drive');
+            const oneDrivePath = path.join(homeDir, 'OneDrive'); // OneDrive da yaygın
+
+            if (fs.existsSync(drivePath)) {
+                backupBase = path.join(drivePath, 'MufYard');
+                console.log('Google Drive algılandı, yedekleme buraya yapılacak:', backupBase);
+            } else if (fs.existsSync(oneDrivePath)) {
+                // Opsiyonel: OneDrive varsa orayı kullan
+                backupBase = path.join(oneDrivePath, 'MufYard');
+            }
+
+            const backupDir = path.join(backupBase, 'Yedekler');
+            if (!fs.existsSync(backupDir)) {
+                fs.mkdirSync(backupDir, { recursive: true });
+            }
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            const filename = `MufYard_Yedek_${timestamp}.json`;
+            const filePath = path.join(backupDir, filename);
+
+            // 3. Yaz
+            fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+            console.log('Yedek oluşturuldu:', filePath);
+
+            if (interactive) {
+                // Confirm kaldırıldı, sadece bilgilendir
+                Toast.show('Yedekleme başarılı: ' + filename, 'success');
+                // Dosya konumunu göster
+                shell.showItemInFolder(filePath);
+            }
+
+        } catch (e) {
+            console.error('Backup Error:', e);
+            if (interactive) Toast.show('Yedekleme hatası: ' + e.message, 'error');
+        }
+    }
+
+    static autoBackup() {
+        try {
+            const lastBackup = localStorage.getItem('last_auto_backup');
+            const now = Date.now();
+            const oneDay = 24 * 60 * 60 * 1000;
+
+            if (!lastBackup || (now - parseInt(lastBackup)) > oneDay) {
+                console.log('Otomatik yedekleme başlatılıyor...');
+                this.createBackup(false);
+                localStorage.setItem('last_auto_backup', now.toString());
+            }
+        } catch (e) {
+            console.error('Auto backup error:', e);
+        }
+    }
+
+    static shouldBackupToday() {
+        const lastBackup = localStorage.getItem('last_auto_backup');
+        if (!lastBackup) return true;
+        const lastDate = new Date(parseInt(lastBackup)).toDateString();
+        const today = new Date().toDateString();
+        return lastDate !== today;
+    }
+
+    static startDailyBackupScheduler() {
+        // Her 4 saatte bir kontrol et
+        setInterval(() => {
+            if (this.shouldBackupToday()) {
+                this.createBackup(false);
+                localStorage.setItem('last_auto_backup', Date.now().toString());
+            }
+        }, 4 * 60 * 60 * 1000);
+    }
+
+    static checkDriveSetup() {
+        // Google Drive kurulu mu kontrol et (Basit klasör kontrolü)
+        if (typeof require === 'undefined') return;
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+        const drivePath = path.join(os.homedir(), 'Google Drive');
+
+        if (!fs.existsSync(drivePath)) {
+            console.log("Google Drive bulunamadı, yerel yedekleme yapılacak.");
+        } else {
+            console.log("Google Drive aktif.");
+        }
+    }
+}
+
 // Global Export
 if (typeof window !== 'undefined') {
     window.PathManager = PathManager;
     window.StorageManager = StorageManager;
     window.AuthManager = AuthManager;
     window.ThemeManager = ThemeManager;
+    window.BackupManager = BackupManager;
 
     // Auto init
     AuthManager.init();

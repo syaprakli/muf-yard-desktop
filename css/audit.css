@@ -1,0 +1,351 @@
+:root {
+    /* Color Palette - Premium & Official */
+    --primary-color: #1a237e;
+    /* Deep Navy Blue - Resmiyet */
+    --primary-light: #534bae;
+    --primary-dark: #000051;
+    --accent-color: #ffd700;
+    /* Gold - Premium his */
+    --accent-hover: #ffea00;
+
+    --bg-body: #f5f7fa;
+    /* Çok açık gri mavi */
+    --bg-white: #ffffff;
+    --bg-card: #ffffff;
+    /* Added for cards/modals */
+    --bg-sidebar: #0f172a;
+    /* Dark Slate */
+
+    --text-main: #1e293b;
+    --text-secondary: #64748b;
+    --text-on-dark: #e2e8f0;
+
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+    --radius-md: 0.75rem;
+    /* 12px */
+    --radius-lg: 1rem;
+    /* 16px */
+
+    --transition-fast: 0.2s ease;
+
+    /* Font Settings */
+    --font-main: 'Inter', sans-serif;
+}
+
+[data-theme="dark"] {
+    --bg-body: #18181b;
+    /* Zinc 900 - Koyu Gri */
+    --bg-white: #27272a;
+    /* Zinc 800 - Panel Grisi */
+    --bg-card: #27272a;
+    /* Card bg for dark mode */
+    --bg-sidebar: #09090b;
+    /* Zinc 950 - Simsiyah Gri */
+
+    --text-main: #f4f4f5;
+    /* Zinc 100 */
+    --text-secondary: #a1a1aa;
+    /* Zinc 400 */
+    --text-on-dark: #fafafa;
+
+    --primary-color: #60a5fa;
+    /* Blue 400 - Daha okunaklı mavi */
+    --primary-light: #93c5fd;
+    --primary-dark: #3b82f6;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.6);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.7);
+
+    /* Form Overrides */
+    input,
+    select,
+    textarea {
+        background: #3f3f46 !important;
+        /* Zinc 700 */
+        border-color: #52525b !important;
+        /* Zinc 600 */
+        color: #f4f4f5 !important;
+    }
+
+    /* Table/List Overrides */
+    .inspection-row,
+    .task-item,
+    .contact-card,
+    .note-card,
+    .calendar-grid,
+    .cal-day {
+        background: #27272a !important;
+        border-color: #3f3f46 !important;
+    }
+
+    .section-container,
+    .stat-card {
+        background: #27272a !important;
+        border-color: #3f3f46 !important;
+    }
+
+    .form-group label {
+        color: #d4d4d8 !important;
+        /* Zinc 300 */
+    }
+
+    .empty-table-state,
+    .empty-state {
+        background: #27272a !important;
+        border-color: #3f3f46 !important;
+    }
+
+    /* Calendar */
+    .cal-day:hover {
+        background: #3f3f46 !important;
+    }
+
+    .cal-day-header {
+        color: #d4d4d8 !important;
+        border-color: #3f3f46 !important;
+    }
+}
+
+/* -- Inspections Module Styles -- */
+
+/* Form Grid */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.form-group input,
+.form-group select {
+    padding: 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    background: #f8fafc;
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--text-main);
+}
+
+.disabled-input {
+    background-color: #e2e8f0 !important;
+    color: #94a3b8 !important;
+    cursor: not-allowed;
+    border-color: #cbd5e1 !important;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background: #fff;
+}
+
+/* -- Inspection Grid Layout (Restored) -- */
+.inspection-row {
+    display: grid;
+    /* Grid Template: Code | Title | Type | Date | StatusSelect | Duration | Dot | Actions */
+    grid-template-columns: 100px 2fr 120px 100px 140px 100px 60px 240px;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fff;
+    transition: background-color 0.2s;
+}
+
+.inspection-row:hover {
+    background-color: #f8fafc;
+}
+
+.inspection-header {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 2px solid #e2e8f0;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-radius: 8px 8px 0 0;
+}
+
+/* Column Utilities */
+.col-code {
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.col-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.col-type,
+.col-date {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.col-status-dot {
+    display: flex;
+    justify-content: center;
+}
+
+.col-actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+/* Visibility Utils for Responsive Headers */
+.mobile-text {
+    display: none;
+}
+
+.desktop-text {
+    display: inline;
+}
+
+.inspection-list {
+    display: flex;
+    flex-direction: column;
+    /* gap removed to allow border collapse look */
+    gap: 0;
+}
+
+.inspection-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    padding: 1.25rem;
+    border: 1px solid #f1f5f9;
+    border-radius: var(--radius-md);
+    transition: var(--transition-fast);
+}
+
+.inspection-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: #cbd5e1;
+}
+
+.insp-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.insp-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.insp-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.insp-details {
+    display: flex;
+    gap: 1.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.insp-details span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.insp-details .material-icons-round {
+    font-size: 1rem;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-pending {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+
+.status-progress {
+    background-color: #eff6ff;
+    color: #2563eb;
+}
+
+.status-report {
+    background-color: #fff7ed;
+    color: #ea580c;
+}
+
+.status-done {
+    background-color: #ecfdf5;
+    color: #059669;
+}
+
+.status-waiting {
+    background-color: #f3e8ff;
+    color: #9333ea;
+}
+
+.status-review {
+    background-color: #fce7f3;
+    color: #db2777;
+}
+
+/* Status Select in Card */
+.status-select {
+    padding: 0.4rem 0.75rem !important;
+    font-size: 0.85rem !important;
+    border-color: transparent !important;
+    background-color: #f8fafc;
+    cursor: pointer;
+}
+
+.status-select:hover {
+    background-color: #f1f5f9;
+}
+
+.empty-table-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+    background: #f8fafc;
+    border-radius: var(--radius-lg);
+    border: 2px dashed #e2e8f0;
+}

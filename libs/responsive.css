@@ -1,0 +1,110 @@
+/* 
+   Muf.Yard Responsive Styles 
+   This file handles all screen size adaptations.
+   Loaded AFTER style.css to override defaults.
+*/
+
+/* Mobile/Tablet Card View (< 1250px) */
+@media (max-width: 1250px) {
+
+    /* Reduce padding to gain space */
+    .content-area {
+        padding: 0 1.5rem 1.5rem 1.5rem !important;
+    }
+
+    .top-bar {
+        padding: 1.5rem 1.5rem 0 1.5rem !important;
+    }
+
+    .inspection-header {
+        display: none !important;
+    }
+
+    .inspection-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        padding: 1.25rem;
+        background: #fff;
+        border: 1px solid #f1f5f9;
+        border-radius: var(--radius-lg);
+        margin-bottom: 1rem;
+        box-shadow: var(--shadow-sm);
+        height: auto !important;
+    }
+
+    .inspection-row:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: #cbd5e1;
+    }
+
+    /* Style inner columns as rows using GRID for stability */
+    .col-code,
+    .col-title,
+    .col-type,
+    .col-date,
+    .col-duration,
+    .col-status {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: 100px 1fr !important;
+        /* Fixed label width | Content */
+        gap: 1rem;
+        align-items: center;
+        font-size: 0.95rem;
+        text-align: left;
+    }
+
+    /* Reset pseudo-element margins */
+    .col-code::before,
+    .col-title::before,
+    .col-type::before,
+    .col-date::before,
+    .col-duration::before,
+    .col-status::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        margin: 0 !important;
+        display: block;
+        /* Ensure it takes space */
+    }
+
+    /* Specific overrides */
+    .col-status::before {
+        content: "Durum";
+    }
+
+    .col-title {
+        white-space: normal;
+        overflow: visible;
+        height: auto;
+    }
+
+    .status-select {
+        width: 100% !important;
+        flex: none;
+    }
+
+    /* Actions Row - Keep Flex */
+    .col-actions {
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    /* Utilities */
+    .desktop-text {
+        display: none !important;
+    }
+
+    .mobile-text {
+        display: inline !important;
+    }
+}

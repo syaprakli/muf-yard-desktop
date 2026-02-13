@@ -133,6 +133,7 @@
             text-decoration: underline;
         }
     </style>
+    <script src="toast.js"></script>
 </head>
 
 <body>
@@ -282,7 +283,7 @@
                 const answer = document.getElementById('reg-answer').value.trim();
 
                 if (!fullname || !username || !password || !answer) {
-                    alert('Lütfen tüm alanları doldurunuz.');
+                    Toast.show('Lütfen tüm alanları doldurunuz.', 'warning');
                     return;
                 }
 
@@ -295,7 +296,7 @@
                 };
 
                 StorageManager.set('app_user', user);
-                alert('Kayıt başarılı! Giriş yapabilirsiniz.');
+                Toast.show('Kayıt başarılı! Giriş yapabilirsiniz.', 'success');
                 AuthManager.showScreen('login');
             },
 
@@ -307,13 +308,13 @@
                 const user = AuthManager.getUser();
 
                 if (!user) {
-                    alert('Kullanıcı bulunamadı. Lütfen kayıt olun.');
+                    Toast.show('Kullanıcı bulunamadı. Lütfen kayıt olun.', 'warning');
                     return;
                 }
 
                 if (user.username === username && user.password === password) {
                     errorMsg.style.display = 'none';
-                    alert('Giriş Başarılı! Hoşgeldin ' + user.fullname);
+                    Toast.show('Giriş Başarılı! Hoşgeldin ' + user.fullname, 'success');
                     // Redirect or load main app content here
                 } else {
                     errorMsg.style.display = 'block';
@@ -342,7 +343,7 @@
                     document.getElementById('forgot-step-2').style.display = 'block';
                     document.getElementById('recovery-question-display').textContent = user.question || 'Güvenlik Sorusu';
                 } else {
-                    alert('Kullanıcı bulunamadı.');
+                    Toast.show('Kullanıcı bulunamadı.', 'error');
                 }
             },
 
@@ -354,10 +355,10 @@
                 if (user.answer === answer) {
                     user.password = newPass;
                     StorageManager.set('app_user', user);
-                    alert('Şifre güncellendi.');
+                    Toast.show('Şifre güncellendi.', 'success');
                     location.reload();
                 } else {
-                    alert('Cevap hatalı!');
+                    Toast.show('Cevap hatalı!', 'error');
                 }
             }
         };

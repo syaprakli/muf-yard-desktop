@@ -66,7 +66,7 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
-            // preload: path.join(__dirname, 'preload.js')
+            preload: path.join(__dirname, 'preload.js')
         },
         autoHideMenuBar: true // Hide menu bar for cleaner look
     });
