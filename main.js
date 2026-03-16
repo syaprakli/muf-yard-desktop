@@ -1,6 +1,22 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+
+// --- IPC Handlers (Existing + Path/FS) ---
+ipcMain.on('fs:exists', (event, p) => { try { event.returnValue = fs.existsSync(p); } catch (e) { event.returnValue = false; } });
+ipcMain.on('fs:mkdir', (event, p) => { try { event.returnValue = fs.mkdirSync(p, { recursive: true }); } catch (e) { event.returnValue = false; } });
+ipcMain.on('fs:readFile', (event, p) => { try { event.returnValue = fs.readFileSync(p); } catch (e) { event.returnValue = null; } });
+ipcMain.on('fs:writeFile', (event, p, data) => { try { event.returnValue = fs.writeFileSync(p, data); } catch (e) { event.returnValue = null; } });
+ipcMain.on('fs:unlink', (event, p) => { try { event.returnValue = fs.unlinkSync(p); } catch (e) { event.returnValue = false; } });
+
+ipcMain.on('path:join', (event, ...args) => event.returnValue = path.join(...args));
+ipcMain.on('path:dirname', (event, p) => event.returnValue = path.dirname(p));
+ipcMain.on('path:basename', (event, p) => event.returnValue = path.basename(p));
+
+ipcMain.on('process:execPath', (event) => event.returnValue = process.execPath);
+ipcMain.on('process:cwd', (event) => event.returnValue = process.cwd());
+ipcMain.on('os:homedir', (event) => event.returnValue = os.homedir());
 
 ipcMain.handle('folder:open', async (event, folderPath) => {
     try {
@@ -24,7 +40,6 @@ ipcMain.handle('folder:open', async (event, folderPath) => {
     }
 });
 
-const { dialog } = require('electron');
 
 ipcMain.handle('dialog:openDirectory', async (event, defaultPath) => {
     const options = {
@@ -57,6 +72,23 @@ ipcMain.handle('dialog:saveFile', async (event, defaultName, defaultPath) => {
     return result;
 });
 
+// --- .env Loader (Manual) ---
+const env = {};
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    lines.forEach(line => {
+        const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+        if (match) {
+            const key = match[1];
+            let value = match[2] || '';
+            if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+            if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+            env[key] = value.trim();
+        }
+    });
+}
+
 function createWindow() {
     const win = new BrowserWindow({
         width: 1280,
@@ -64,11 +96,25 @@ function createWindow() {
         title: 'Müf.Yard',
         icon: path.join(__dirname, 'icon.ico'),
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
-            preload: path.join(__dirname, 'preload.js')
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js'),
+            // Pass env to the renderer indirectly via IPC or Global
         },
-        autoHideMenuBar: true // Hide menu bar for cleaner look
+        autoHideMenuBar: true
+    });
+
+    // Ortam değişkenlerini (env) preload'a aktar
+    win.webContents.on('did-finish-load', () => {
+        win.webContents.send('env-data', {
+            ...env,
+            appVersion: app.getVersion(),
+            isPackaged: app.isPackaged
+        });
+    });
+
+    ipcMain.on('get-env', (event) => {
+        event.returnValue = env;
     });
 
     // Maximize window on startup

@@ -1,14 +1,14 @@
 // Firebase Configuration & Initialization
-// Managed by Antigravity - Linked to the 'mufyard' project.
+// Works in both Electron (reads from .env via electronAPI) and Web (uses hardcoded values).
 
 const firebaseConfig = {
-    apiKey: typeof process !== 'undefined' && process.env.FIREBASE_API_KEY || "",
-    authDomain: typeof process !== 'undefined' && process.env.FIREBASE_AUTH_DOMAIN || "",
-    projectId: typeof process !== 'undefined' && process.env.FIREBASE_PROJECT_ID || "",
-    storageBucket: typeof process !== 'undefined' && process.env.FIREBASE_STORAGE_BUCKET || "",
-    messagingSenderId: typeof process !== 'undefined' && process.env.FIREBASE_MESSAGING_SENDER_ID || "",
-    appId: typeof process !== 'undefined' && process.env.FIREBASE_APP_ID || "",
-    measurementId: typeof process !== 'undefined' && process.env.FIREBASE_MEASUREMENT_ID || ""
+    apiKey: (window.electronAPI && window.electronAPI.env.FIREBASE_API_KEY) || "AIzaSyCvR7Tr3hPl9U3Gf9t-a8voMhXyedeZac4",
+    authDomain: (window.electronAPI && window.electronAPI.env.FIREBASE_AUTH_DOMAIN) || "mufyard.firebaseapp.com",
+    projectId: (window.electronAPI && window.electronAPI.env.FIREBASE_PROJECT_ID) || "mufyard",
+    storageBucket: (window.electronAPI && window.electronAPI.env.FIREBASE_STORAGE_BUCKET) || "mufyard.firebasestorage.app",
+    messagingSenderId: (window.electronAPI && window.electronAPI.env.FIREBASE_MESSAGING_SENDER_ID) || "725862581824",
+    appId: (window.electronAPI && window.electronAPI.env.FIREBASE_APP_ID) || "1:725862581824:web:f462e5d4ed2c39664fc1a5",
+    measurementId: (window.electronAPI && window.electronAPI.env.FIREBASE_MEASUREMENT_ID) || "G-XED73YT7T7"
 };
 
 let app, db, auth, storage;
@@ -16,23 +16,27 @@ let app, db, auth, storage;
 function initFirebase() {
     if (typeof firebase !== 'undefined') {
         try {
-            // Initialize Firebase
             app = firebase.initializeApp(firebaseConfig);
             db = firebase.firestore();
             auth = firebase.auth();
             storage = firebase.storage();
 
-            // Enable Offline Persistence for a better Desktop experience
+            // Offline persistence (works in Electron; gracefully fails in web with multiple tabs)
             db.enablePersistence()
                 .catch((err) => {
-                    if (err.code == 'failed-precondition') {
-                        console.warn('Firebase Sync: Multiple tabs open, persistence disabled.');
-                    } else if (err.code == 'unimplemented') {
-                        console.warn('Firebase Sync: Browser does not support persistence.');
+                    if (err.code === 'failed-precondition') {
+                        console.warn('Firebase: Multiple tabs open, persistence disabled.');
+                    } else if (err.code === 'unimplemented') {
+                        console.warn('Firebase: Browser does not support persistence.');
                     }
                 });
 
             console.log('Firebase: Successfully connected to "mufyard"');
+
+            // Initialize Sync Manager
+            if (typeof SyncManager !== 'undefined') {
+                SyncManager.init();
+            }
         } catch (e) {
             console.error('Firebase: Initialization failed:', e);
         }
@@ -41,7 +45,6 @@ function initFirebase() {
     }
 }
 
-// Ensure initialization after DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initFirebase);
 } else {

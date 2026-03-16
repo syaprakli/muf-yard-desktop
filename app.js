@@ -6,6 +6,62 @@
 // --- Data Layer (Moved to libs/CoreManagers.js) ---
 // PathManager, StorageManager, BackupManager, AuthManager, ThemeManager are now loaded externally.
 
+// --- Global Auth Handler ---
+window.checkLogin = function () {
+    const isSessionActive = sessionStorage.getItem('isLoggedIn') === 'true';
+    const user = AuthManager.getUser();
+
+    // Auto-fill email if user exists but session is not active
+    if (user && !isSessionActive) {
+        const emailInput = document.getElementById('login-email');
+        if (emailInput) emailInput.value = user.email || '';
+    }
+
+    if (user && isSessionActive) {
+        document.getElementById('login-overlay').style.display = 'none';
+        // Initialize App
+        if (typeof UIManager !== 'undefined' && UIManager.init) UIManager.init();
+    } else {
+        document.getElementById('login-overlay').style.display = 'flex';
+
+        // If we have a user but no session, show login screen directly
+        if (user) {
+            AuthManager.showScreen('login');
+        } else {
+            AuthManager.showScreen('intro'); // 'intro' → auth-intro (showScreen adds 'auth-' prefix)
+        }
+    }
+};
+
+
+// Auto-check on load
+document.addEventListener('DOMContentLoaded', () => {
+    window.checkLogin();
+});
+
+// --- IPC Ortam Dinleyicisi ---
+if (window.electronAPI) {
+    window.electronAPI.on('env-data', (data) => {
+        // ... Mevcut Env İşleme ...
+        if (data.GEMINI_API_KEY) {
+            // Pencereye (window) maruz bırakmadan AIService'e güvenli bir şekilde aktar
+            AIService.setApiKey(data.GEMINI_API_KEY);
+        }
+
+        // --- Sürüm Gösterimi ---
+        const versionEl = document.getElementById('app-version-display');
+        if (versionEl && data.appVersion) {
+            const envType = data.isPackaged ? '' : ' (Geliştirici Modu)';
+            versionEl.textContent = `v${data.appVersion}${envType}`;
+
+            // Opsiyonel: Geliştirici modunda renk değiştir
+            if (!data.isPackaged) {
+                versionEl.style.color = '#fbbf24'; // Amber-400
+            }
+        }
+    });
+}
+
 class NoteManager {
     static getNotes() {
         return StorageManager.get('notes', []);
@@ -552,6 +608,9 @@ class TemplateManager {
         }
     }
 
+    // Password change logic removed as per offline-first auth architecture
+    // changePassword: async () => { ... }
+
     // Recursive file walker
     static getAllFiles(dirPath, arrayOfFiles) {
         if (typeof require === 'undefined') return [];
@@ -845,7 +904,11 @@ class ReportManager {
     static generateReportCode() {
         const reports = this.getReports();
         const currentYear = new Date().getFullYear();
-        const prefix = `S.Y.64/${currentYear}-`;
+
+        // Dinamik Ön Ek (Ayarlardan Al)
+        const config = StorageManager.get('report_config', {});
+        const prefixBase = config.prefix || 'S.Y.64';
+        const prefix = `${prefixBase}/${currentYear}-`;
 
         // Bu yıla ait raporların sıra numaralarını bul
         const sequenceNumbers = reports
@@ -1270,6 +1333,20 @@ class TaskManager {
             urgent: tasks.filter(t => t.priority === 'high' && !t.completed).length
         };
     }
+
+    static linkAudit(taskId, auditId) {
+        let tasks = this.getTasks();
+        const index = tasks.findIndex(t => t.id == taskId);
+        if (index !== -1) {
+            tasks[index].meta = tasks[index].meta || {};
+            tasks[index].meta.auditId = auditId;
+            tasks[index].meta.linkedAt = new Date().toISOString();
+            StorageManager.set('tasks', tasks);
+            console.log(`Task ${taskId} linked to audit ${auditId}`);
+            return true;
+        }
+        return false;
+    }
 }
 
 
@@ -1368,6 +1445,25 @@ const AssistantManager = {
 
 // --- UI Layer ---
 const UIManager = {
+    refreshCurrentView: (changedKeys = []) => {
+        const activeNav = document.querySelector('.nav-item.active');
+        if (!activeNav) return;
+
+        const viewName = activeNav.dataset.view;
+        console.log(`UIManager: Refreshing view "${viewName}" due to cloud changes:`, changedKeys);
+
+        // Refresh specific view logic
+        if (viewName === 'notes') UIManager.renderNotes(NoteManager.getNotes());
+        else if (viewName === 'tasks') UIManager.renderTasks(TaskManager.getTasks());
+        else if (viewName === 'reports') UIManager.initReportsView();
+        else if (viewName === 'dashboard') {
+            if (UIManager.updateDashboardStatsIfVisible) UIManager.updateDashboardStatsIfVisible();
+            else UIManager.initDashboardView();
+        }
+        else if (viewName === 'calendar' && typeof CalendarManager !== 'undefined') CalendarManager.init();
+        else if (viewName === 'contacts') UIManager.initContactsView();
+    },
+
     showAboutModal: () => {
         document.getElementById('about-modal').style.display = 'flex';
     },
@@ -1380,6 +1476,19 @@ const UIManager = {
     openTrainingSettings: () => {
         document.getElementById('ai-settings-modal').style.display = 'flex';
         UIManager.switchSettingsTab('training');
+    },
+
+    saveReportSettings: () => {
+        const prefix = document.getElementById('report-code-prefix').value.trim();
+        if (!prefix) {
+            Toast.show('Lütfen bir ön ek giriniz.', 'warning');
+            return;
+        }
+
+        const config = StorageManager.get('report_config', {});
+        config.prefix = prefix;
+        StorageManager.set('report_config', config);
+        Toast.show('Rapor ayarları kaydedildi.', 'success');
     },
 
     saveAIConfig: () => {
@@ -2035,11 +2144,12 @@ const UIManager = {
 
         document.querySelectorAll('.delete-report').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                if (confirm('Bu rapor kaydını silmek istediğinize emin misiniz?')) {
-                    const id = parseInt(e.currentTarget.dataset.id);
+                const id = parseInt(e.currentTarget.dataset.id);
+                ConfirmationManager.show('Bu rapor kaydını silmek istediğinize emin misiniz?', () => {
                     ReportManager.deleteReport(id);
                     UIManager.renderReports(ReportManager.getReports());
-                }
+                    Toast.show('Rapor silindi.', 'success');
+                }, 'Sil');
             });
         });
 
@@ -2940,7 +3050,7 @@ const UIManager = {
                 if (fileType === 'pdf') {
                     // PDF.js Implementation
                     if (typeof pdfjsLib === 'undefined') {
-                        throw new Error('PDF okuyucu (pdf.js) yüklenemedi. İnternet bağlantınızı kontrol edin.');
+                        throw new Error('PDF okuyucu (pdf.js) yüklenemedi. AI eğitimi için internet bağlantınız aktif olmalı veya kütüphane eksik.');
                     }
 
                     // Worker Configuration
@@ -3027,7 +3137,7 @@ const UIManager = {
                 } else if (['png', 'jpg', 'jpeg', 'bmp'].includes(fileType)) {
                     // IMAGE OCR SUPPORT
                     if (typeof Tesseract === 'undefined') {
-                        throw new Error('OCR motoru (Tesseract.js) yüklenemedi. İnternet bağlantınızı kontrol edin.');
+                        throw new Error('OCR motoru (Tesseract.js) yüklenemedi. Resimlerden metin okuma için aktif bir internet bağlantısı gereklidir.');
                     }
                     console.log('Starting OCR for image...');
                     Toast.show(`${file.name} için metin taranıyor (OCR)...`, 'info');
@@ -3351,16 +3461,6 @@ const UIManager = {
                             </div>
                         </div>
 
-                        <!-- Şifre -->
-                        <div class="settings-card-item" onclick="window.openSettingsDetail('password')" style="background:#fff; padding:1.5rem; border-radius:12px; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:1rem;">
-                            <div style="width:50px; height:50px; background:#fef3c7; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#d97706;">
-                                <span class="material-icons-round" style="font-size:28px;">lock</span>
-                            </div>
-                            <div>
-                                <h4 style="margin:0; font-size:1.1rem; color:var(--text-main);">Şifre Ayarları</h4>
-                                <p style="margin:0; font-size:0.85rem; color:var(--text-secondary);">Şifre değiştirme</p>
-                            </div>
-                        </div>
 
                         <!-- Görünüm -->
                         <div class="settings-card-item" onclick="window.openSettingsDetail('appearance')" style="background:#fff; padding:1.5rem; border-radius:12px; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:1rem;">
@@ -3370,6 +3470,17 @@ const UIManager = {
                             <div>
                                 <h4 style="margin:0; font-size:1.1rem; color:var(--text-main);">Görünüm Özelleştirme</h4>
                                 <p style="margin:0; font-size:0.85rem; color:var(--text-secondary);">Tema, renk ve yazı tipi</p>
+                            </div>
+                        </div>
+
+                        <!-- Rapor Ayarları -->
+                        <div class="settings-card-item" onclick="window.openSettingsDetail('report_settings')" style="background:#fff; padding:1.5rem; border-radius:12px; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:1rem;">
+                            <div style="width:50px; height:50px; background:#e0f2fe; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#0369a1;">
+                                <span class="material-icons-round" style="font-size:28px;">description</span>
+                            </div>
+                            <div>
+                                <h4 style="margin:0; font-size:1.1rem; color:var(--text-main);">Rapor Ayarları</h4>
+                                <p style="margin:0; font-size:0.85rem; color:var(--text-secondary);">Rapor kodu ve formatı</p>
                             </div>
                         </div>
 
@@ -3392,6 +3503,17 @@ const UIManager = {
                             <div>
                                 <h4 style="margin:0; font-size:1.1rem; color:var(--text-main);">Hatırlatıcılarım</h4>
                                 <p style="margin:0; font-size:0.85rem; color:var(--text-secondary);">Bildirimlerinizi yönetin</p>
+                            </div>
+                        </div>
+
+                        <!-- Senkronizasyon - NEW -->
+                        <div class="settings-card-item" onclick="window.openSettingsDetail('sync')" style="background:#fff; padding:1.5rem; border-radius:12px; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:1rem; border-left:4px solid var(--primary-color);">
+                            <div style="width:50px; height:50px; background:#e0f2fe; border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--primary-color);">
+                                <span class="material-icons-round" style="font-size:28px;">sync</span>
+                            </div>
+                            <div>
+                                <h4 style="margin:0; font-size:1.1rem; color:var(--text-main);">Bulut Senkronizasyon</h4>
+                                <p style="margin:0; font-size:0.85rem; color:var(--text-secondary);">Veri eşitleme ve durum</p>
                             </div>
                         </div>
 
@@ -3462,6 +3584,70 @@ const UIManager = {
                         </div>
                     </div >
     `;
+            } else if (viewId === 'report_settings') {
+                title = 'Rapor Ayarları';
+                const config = StorageManager.get('report_config', {});
+                const prefix = config.prefix || 'S.Y.64';
+
+                detailHTML = `
+                    <div class="settings-card" style="max-width:600px; margin:0 auto;">
+                        <div class="form-group">
+                            <label>Rapor Kodu Ön Eki</label>
+                            <input type="text" id="report-code-prefix" value="${prefix}" placeholder="Örn: S.Y.64 veya A.Y">
+                            <small style="color:var(--text-secondary);">Yeni raporlar oluşturulurken kullanılacak varsayılan ön ek. (Örn: S.Y.64/2025-1)</small>
+                        </div>
+                        
+                        <div style="display:flex; justify-content:flex-end; margin-top:1.5rem;">
+                            <button class="btn btn-primary" onclick="UIManager.saveReportSettings()">
+                                <span class="material-icons-round">save</span> Kaydet
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (viewId === 'sync') {
+                title = 'Bulut Senkronizasyon';
+                const user = AuthManager.getUser();
+                const syncStatus = SyncManager.isConnected ? 'Bağlı' : 'Bağlı Değil';
+
+                detailHTML = `
+                    <div class="settings-card" style="max-width:600px; margin:0 auto;">
+                        <div style="background:rgba(33, 150, 243, 0.05); padding:1rem; border-radius:8px; border:1px solid rgba(33, 150, 243, 0.1); margin-bottom:1.5rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-weight:600; color:var(--text-main);">Hesap:</span>
+                                <span style="color:var(--text-secondary);">${user ? user.email : 'Giris Yapilmadi'}</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
+                                <span style="font-weight:600; color:var(--text-main);">Gerçek Zamanlı Durum:</span>
+                                <span style="color:${SyncManager.isConnected ? 'var(--success)' : 'var(--danger)'}; font-weight:700;">${syncStatus}</span>
+                            </div>
+                        </div>
+
+                        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1.5rem;">
+                            Uygulama normalde verilerinizi otomatik olarak tüm cihazlarınız arasında eşitler. 
+                            Eğer bir sorun yaşıyorsanız aşağıdaki butonları kullanarak manuel işlem yapabilirsiniz.
+                        </p>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                            <button class="btn btn-outline" onclick="StorageManager.syncAllToCloud()" style="flex-direction:column; padding:1.5rem; gap:0.5rem;">
+                                <span class="material-icons-round" style="font-size:2rem;">upload</span>
+                                <div>Tümünü Buluta Gönder</div>
+                                <small style="font-weight:normal; opacity:0.8;">Cihazdaki tüm verileri buluta yazar.</small>
+                            </button>
+                            <button class="btn btn-outline" onclick="StorageManager.syncFromCloud()" style="flex-direction:column; padding:1.5rem; gap:0.5rem;">
+                                <span class="material-icons-round" style="font-size:2rem;">download</span>
+                                <div>Buluttan Veri Çek</div>
+                                <small style="font-weight:normal; opacity:0.8;">Buluttaki en güncel verileri alır.</small>
+                            </button>
+                        </div>
+
+                        <div style="margin-top:2rem; padding:1rem; background:#fff8e1; border-radius:8px; border:1px solid #ffe082;">
+                            <small style="color:#f57f17; display:flex; gap:0.5rem;">
+                                <span class="material-icons-round" style="font-size:1rem;">info</span>
+                                <b>Not:</b> Aynı Gmail hesabı ile girdiğinizden emin olun. Veriler Gmail hesabınıza özel olarak şifrelenir.
+                            </small>
+                        </div>
+                    </div>
+                `;
             } else if (viewId === 'profile') {
                 title = 'Profil Bilgileri';
                 detailHTML = `
@@ -3475,31 +3661,11 @@ const UIManager = {
                             <input type="text" id="set-username" value="${user ? user.username : ''}" disabled style="background:#f1f5f9; cursor:not-allowed;" title="Kullanıcı adı değiştirilemez">
                         </div>
                          <div class="form-group">
-                            <label>Güvenlik Sorusu</label>
-                            <input type="text" id="set-question" value="${user ? user.question : ''}" placeholder="Örn: En sevdiğim renk?">
-                        </div>
-                        <div class="form-group">
-                            <label>Güvenlik Cevabı</label>
-                            <input type="text" id="set-answer" placeholder="Değiştirmek için yeni cevap girin">
+                            <label>E-posta Adresi</label>
+                            <input type="text" id="set-email" value="${user ? user.email : ''}" disabled style="background:#f1f5f9; cursor:not-allowed;">
                         </div>
                         <button class="btn btn-primary" id="save-profile-btn" style="width:100%; margin-top:1rem;">
                             <span class="material-icons-round">save</span> Değişiklikleri Kaydet
-                        </button>
-                    </div > `;
-            } else if (viewId === 'password') {
-                title = 'Şifre Ayarları';
-                detailHTML = `
-    <div class="settings-card" style="max-width:600px; margin:0 auto;">
-                         <div class="form-group">
-                            <label>Mevcut Şifre</label>
-                            <input type="password" id="old-pass" placeholder="******">
-                        </div>
-                        <div class="form-group">
-                            <label>Yeni Şifre</label>
-                            <input type="password" id="new-pass" placeholder="******">
-                        </div>
-                        <button class="btn btn-outline" id="change-pass-btn" onclick="SettingsManager.changePasswordUI()" style="width:100%; margin-top:1rem; border-color:var(--danger); color:var(--danger);">
-                            <span class="material-icons-round">lock_reset</span> Şifreyi Değiştir
                         </button>
                     </div > `;
             } else if (viewId === 'appearance') {
@@ -3648,10 +3814,8 @@ const UIManager = {
             if (viewId === 'profile') {
                 document.getElementById('save-profile-btn').addEventListener('click', () => {
                     const fullname = document.getElementById('set-fullname').value.trim();
-                    const question = document.getElementById('set-question').value;
-                    const answer = document.getElementById('set-answer').value.trim();
                     if (fullname) {
-                        SettingsManager.updateProfile(fullname, question, answer);
+                        SettingsManager.updateProfile(fullname);
                     } else {
                         Toast.show('Ad Soyad boş olamaz.', 'warning');
                     }
@@ -3802,17 +3966,14 @@ const UIManager = {
                 .map(cb => parseInt(cb.dataset.id));
 
             if (selectedIds.length > 0) {
-                ConfirmationManager.show(
-                    `${selectedIds.length} görevi silmek istediğinize emin misiniz ? `,
-                    () => {
-                        TaskManager.deleteMultiple(selectedIds);
-                        UIManager.renderTasks(TaskManager.getTasks());
-                        updateDashboardStatsIfVisible();
-                        Toast.show(`${selectedIds.length} görev silindi.`, 'success');
-                        bulkDeleteBtn.style.display = 'none';
-                    },
-                    'Evet, Sil'
-                );
+                const text = `${selectedIds.length} görevi silmek istediğinize emin misiniz?`;
+                ConfirmationManager.show(text, () => {
+                    TaskManager.deleteMultiple(selectedIds);
+                    UIManager.renderTasks(TaskManager.getTasks());
+                    UIManager.updateDashboardStatsIfVisible();
+                    Toast.show(`${selectedIds.length} görev silindi.`, 'success');
+                    bulkDeleteBtn.style.display = 'none';
+                }, 'Sil');
             }
         });
 
@@ -4847,48 +5008,17 @@ const CorporateContactsManager = {
 
 
 const SettingsManager = {
-    updateProfile: (fullname, securityQ, securityA) => {
+    updateProfile: (fullname) => {
         const user = AuthManager.getUser();
         if (user) {
             user.fullname = fullname;
-            user.question = securityQ;
-            if (securityA) user.answer = securityA.toLowerCase();
+            // Security questions removed per user feedback
 
             StorageManager.set('app_user', user);
             Toast.show('Profil başarıyla güncellendi.', 'success');
             return true;
         }
         return false;
-    },
-
-    changePassword: (oldPass, newPass) => {
-        const user = AuthManager.getUser();
-        if (user) {
-            if (user.password === oldPass) {
-                user.password = newPass;
-                StorageManager.set('app_user', user);
-                Toast.show('Şifreniz değiştirildi.', 'success');
-                return true;
-            } else {
-                Toast.show('Eski şifreniz hatalı!', 'error');
-                return false;
-            }
-        }
-        return false;
-    },
-
-    changePasswordUI: () => {
-        const oldPass = document.getElementById('old-pass').value;
-        const newPass = document.getElementById('new-pass').value;
-        if (oldPass && newPass) {
-            if (SettingsManager.changePassword(oldPass, newPass)) {
-                // Clear inputs on success
-                document.getElementById('old-pass').value = '';
-                document.getElementById('new-pass').value = '';
-            }
-        } else {
-            Toast.show('Lütfen mevcut ve yeni şifreyi giriniz.', 'warning');
-        }
     }
 };
 

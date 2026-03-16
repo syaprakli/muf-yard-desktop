@@ -55,7 +55,7 @@ window.AuditManager = {
                 ]
             }
         ],
-        'İl Denetim/il.xlsx': [
+        'il.xlsx': [
             {
                 name: "İl Müdürlüğü Denetimi", items: [
                     { type: 'question', id: 'q1', text: 'Yatırım projeleri planlamaya uygun ilerliyor mu?', area: 'Yatırım' },
@@ -66,7 +66,7 @@ window.AuditManager = {
                 ]
             }
         ],
-        'Kyk Yurt Denetim Şablonu/template_yurt.xlsx': [
+        'template_yurt.xlsx': [
             {
                 name: "KYK Yurt Denetimi", items: [
                     { type: 'question', id: 'q1', text: 'Öğrenci giriş-çıkış sistemi aktif mi?', area: 'Güvenlik' },
@@ -94,40 +94,40 @@ window.AuditManager = {
                     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-top:1rem;">
                         
                         <!-- 1. İl Müd -->
-                         <div class="card stat-card" onclick="AuditManager.promptNewAudit('il_mudurlugu', 'İl Denetim/il.xlsx')" style="cursor:pointer; border-left:4px solid var(--primary-color);">
+                         <div class="card stat-card" onclick="AuditManager.promptNewAudit('il_mudurlugu', 'il.xlsx')" style="cursor:pointer; border-left:4px solid var(--primary-color);">
                             <div class="icon-box info"><span class="material-icons-round">account_balance</span></div>
                             <div><div style="font-weight:600;">İl Müdürlüğü</div><div style="font-size:0.8rem; color:var(--text-secondary);">Genel Denetim</div></div>
                         </div>
 
                         <!-- 2. KYK Yurt -->
-                        <div class="card stat-card" onclick="AuditManager.promptNewAudit('kyk_yurt', 'Kyk Yurt Denetim Şablonu/template_yurt.xlsx')" style="cursor:pointer; border-left:4px solid var(--warning);">
+                        <div class="card stat-card" onclick="AuditManager.promptNewAudit('kyk_yurt', 'template_yurt.xlsx')" style="cursor:pointer; border-left:4px solid var(--warning);">
                             <div class="icon-box warning"><span class="material-icons-round">apartment</span></div>
                             <div><div style="font-weight:600;">KYK Yurt</div><div style="font-size:0.8rem; color:var(--text-secondary);">Yurt Denetimi</div></div>
                         </div>
 
                         <!-- 3. Özel Yurt (Yakında) -->
-                         <div class="card stat-card" style="opacity:0.6; grayscale(1); cursor:not-allowed; border-left:4px solid var(--success); position:relative;">
+                         <div class="card stat-card" style="opacity:0.6; cursor:not-allowed; border-left:4px solid var(--success); position:relative;">
                             <div style="position:absolute; top:8px; right:8px; background:#f1f5f9; color:#64748b; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:bold; border:1px solid #e2e8f0;">YAKINDA</div>
                             <div class="icon-box success"><span class="material-icons-round">home_work</span></div>
                             <div><div style="font-weight:600;">Özel Yurt</div><div style="font-size:0.8rem; color:var(--text-secondary);">Barınma Denetimi</div></div>
                         </div>
 
                         <!-- 4. Federasyon (Yakında) -->
-                        <div class="card stat-card" style="opacity:0.6; grayscale(1); cursor:not-allowed; border-left:4px solid #8b5cf6; position:relative;">
+                        <div class="card stat-card" style="opacity:0.6; cursor:not-allowed; border-left:4px solid #8b5cf6; position:relative;">
                             <div style="position:absolute; top:8px; right:8px; background:#f1f5f9; color:#64748b; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:bold; border:1px solid #e2e8f0;">YAKINDA</div>
                             <div class="icon-box" style="background:#8b5cf6;"><span class="material-icons-round">sports_soccer</span></div>
                             <div><div style="font-weight:600;">Federasyon</div><div style="font-size:0.8rem; color:var(--text-secondary);">Federasyon Denetimi</div></div>
                         </div>
 
                         <!-- 5. Kulüp (Yakında) -->
-                        <div class="card stat-card" style="opacity:0.6; grayscale(1); cursor:not-allowed; border-left:4px solid #ef4444; position:relative;">
+                        <div class="card stat-card" style="opacity:0.6; cursor:not-allowed; border-left:4px solid #ef4444; position:relative;">
                             <div style="position:absolute; top:8px; right:8px; background:#f1f5f9; color:#64748b; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:bold; border:1px solid #e2e8f0;">YAKINDA</div>
                             <div class="icon-box" style="background:#ef4444;"><span class="material-icons-round">groups</span></div>
                             <div><div style="font-weight:600;">Kulüp</div><div style="font-size:0.8rem; color:var(--text-secondary);">Spor Kulübü Denetimi</div></div>
                         </div>
 
-                        <!-- 6. Diğer (Yakında) -->
-                         <div class="card stat-card" style="opacity:0.6; grayscale(1); cursor:not-allowed; border-left:4px solid #64748b; position:relative;">
+                        <!-- 6. Genel / Diğer (Yakında) -->
+                         <div class="card stat-card" style="opacity:0.6; cursor:not-allowed; border-left:4px solid #64748b; position:relative;">
                             <div style="position:absolute; top:8px; right:8px; background:#f1f5f9; color:#64748b; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:bold; border:1px solid #e2e8f0;">YAKINDA</div>
                             <div class="icon-box" style="background:#64748b;"><span class="material-icons-round">folder_open</span></div>
                             <div><div style="font-weight:600;">Genel / Diğer</div><div style="font-size:0.8rem; color:var(--text-secondary);">Serbest Denetim</div></div>
@@ -323,19 +323,21 @@ window.AuditManager = {
         let folderPath = null;
 
         // Electron: Create Folder
-        if (typeof require !== 'undefined') {
+        if (PathManager.isElectron()) {
             try {
-                const fs = require('fs');
-                const path = require('path');
+                const api = window.electronAPI;
+                const fs = api.fs;
+                const path = api.path;
+
                 const rootDir = PathManager.join('Denetim Dosyalari');
-                if (!fs.existsSync(rootDir)) fs.mkdirSync(rootDir, { recursive: true });
+                if (!fs.exists(rootDir)) fs.mkdir(rootDir);
 
                 const typeDir = path.join(rootDir, type);
-                if (!fs.existsSync(typeDir)) fs.mkdirSync(typeDir, { recursive: true });
+                if (!fs.exists(typeDir)) fs.mkdir(typeDir);
 
                 const safeName = name.replace(/[\u003c\u003e:\"/\\\\|?*]/g, '_');
                 folderPath = path.join(typeDir, safeName);
-                if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
+                if (!fs.exists(folderPath)) fs.mkdir(folderPath);
 
             } catch (e) { console.error('Folder create error:', e); }
         }
@@ -361,6 +363,11 @@ window.AuditManager = {
 
         StorageManager.addToArray('audit_records', newAudit);
 
+        // Sync to Firebase
+        if (typeof SyncManager !== 'undefined') {
+            SyncManager.syncAuditRecord(newAudit);
+        }
+
         // LINK TASK
         if (taskId && typeof TaskManager !== 'undefined') {
             TaskManager.linkAudit(taskId, newId);
@@ -370,9 +377,14 @@ window.AuditManager = {
     },
 
     deleteAudit: async (id) => {
-        if (!confirm('Bu denetim dosyası silinecek. Emin misiniz?')) return;
+        // if (!confirm('Bu denetim dosyası silinecek. Emin misiniz?')) return;
 
         StorageManager.removeFromArray('audit_records', 'id', id);
+
+        // Sync deletion to Firebase
+        if (typeof SyncManager !== 'undefined') {
+            SyncManager.deleteAuditRecord(id);
+        }
 
         // Refresh logic: only re-render dashboard if we are on that view
         if (document.getElementById('view-denetim-dashboard')) {
@@ -787,23 +799,19 @@ window.AuditManager = {
 
         setTimeout(async () => {
             try {
-                // Determine Path
-                const isElectron = (typeof require !== 'undefined') || (typeof window !== 'undefined' && typeof window.require !== 'undefined');
+                // Determine Path using PathManager
+                const isElectron = PathManager.isElectron();
                 let fileBuffer;
 
                 if (isElectron) {
-                    const fs = (typeof require !== 'undefined' ? require('fs') : window.require('fs'));
-                    const path = (typeof require !== 'undefined' ? require('path') : window.require('path'));
+                    const api = window.electronAPI;
+                    const fs = api.fs;
 
-                    let tPath = path.join(__dirname, 'Sablonlar', templateName);
+                    const tPath = PathManager.join('Sablonlar', templateName);
 
-                    // Simple path checks
-                    if (!fs.existsSync(tPath)) tPath = path.join(process.cwd(), 'Sablonlar', templateName);
-                    if (!fs.existsSync(tPath) && process.resourcesPath) tPath = path.join(process.resourcesPath, 'Sablonlar', templateName);
-
-                    if (fs.existsSync(tPath)) {
+                    if (fs.exists(tPath)) {
                         console.log('Loading template from:', tPath);
-                        fileBuffer = fs.readFileSync(tPath);
+                        fileBuffer = fs.readFile(tPath);
                     } else {
                         console.error('Template not found in:', tPath);
                         throw new Error('Dosya bulunamadı: ' + templateName);

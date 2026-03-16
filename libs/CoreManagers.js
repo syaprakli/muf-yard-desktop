@@ -6,46 +6,41 @@
 // 1. PathManager
 class PathManager {
     static isElectron() {
-        return (typeof process !== 'undefined' && process.versions && !!process.versions.electron) ||
-            (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes(' electron/'));
+        return !!window.electronAPI;
     }
 
     static getRoot() {
-        if (this.isElectron() || typeof require !== 'undefined') {
-            const path = require('path');
-            const fs = require('fs');
-            const os = require('os');
+        if (this.isElectron()) {
+            const api = window.electronAPI;
+            const path = api.path;
+            const fs = api.fs;
+            const os = api.os;
+            const proc = api.process;
+
             let basePath;
+            const execPath = proc.execPath;
 
             // 1. Dizin Tespit Stratejisi
-            if (process.execPath.includes('node_modules') || process.execPath.includes('electron.exe') || process.execPath.includes('electron.cmd')) {
-                basePath = process.cwd(); // Geliştirme (Playground)
-            } else {
-                basePath = path.dirname(process.execPath); // Üretim (.exe'nin yanı)
+            // Program Files içine kurulan uygulamalarda oraya yazmaya çalışmak hata verir.
+            // Bu yüzden varsayılan olarak BELGELERİM klasörünü kullanacağız.
+
+            const documentsPath = path.join(os.homedir(), 'Documents', 'MufYard');
+
+            // Eğer geliştirme ortamındaysak (cwd) orayı kullanabiliriz, ama prodüksiyonda Documents güvenlidir.
+            if (execPath.includes('node_modules') || execPath.includes('electron.exe')) {
+                // Dev mode: Project Root
+                return proc.cwd();
             }
 
-            // 2. Klasör İsmi Kontrolü (İç içe MufYard/MufYard oluşmasını önle)
-            const baseDirName = path.basename(basePath);
-            if (baseDirName.toLowerCase() === 'mufyard') {
-                return basePath; // Zaten MufYard içindeyiz, burayı kök al.
-            }
-
-            const targetPath = path.join(basePath, 'MufYard');
-
-            // 3. Yazma İzni Kontrolü (Admin yetkisi gerekirse 'Belgeler'e taşı)
-            try {
-                if (!fs.existsSync(targetPath)) {
-                    fs.mkdirSync(targetPath, { recursive: true });
+            // Production: Documents/MufYard
+            if (!fs.exists(documentsPath)) {
+                try {
+                    fs.mkdir(documentsPath);
+                } catch (e) {
+                    console.error('Belgelerim klasörüne erişilemedi:', e);
                 }
-                // Test yazması dene
-                const testFile = path.join(targetPath, '.write_test');
-                fs.writeFileSync(testFile, 'test');
-                fs.unlinkSync(testFile);
-            } catch (e) {
-                const fallback = path.join(os.homedir(), 'Documents', 'MufYard');
-                console.warn('Kurulum dizinine yazma izni yok, Belgeler kullanılıyor:', fallback);
-                return fallback;
             }
+            return documentsPath;
 
             console.log('PathManager: Uygulama kök dizini (Target):', targetPath);
             return targetPath;
@@ -54,17 +49,17 @@ class PathManager {
     }
 
     static join(...parts) {
-        if (typeof require !== 'undefined') {
-            return require('path').join(this.getRoot(), ...parts);
+        if (this.isElectron()) {
+            return window.electronAPI.path.join(this.getRoot(), ...parts);
         }
         return [this.getRoot(), ...parts].join('\\');
     }
 
     static getTemplatesPath() {
-        if (typeof require === 'undefined') return 'Sablonlar';
+        if (!this.isElectron()) return 'Sablonlar';
 
-        const path = require('path');
-        const fs = require('fs');
+        const api = window.electronAPI;
+        const fs = api.fs;
 
         let candidates = [
             this.join('Sablonlar'), // C:\MufYard\Sablonlar (Development/Portable)
@@ -72,11 +67,10 @@ class PathManager {
         ];
 
         for (const candidate of candidates) {
-            if (fs.existsSync(candidate)) {
+            if (fs.exists(candidate)) {
                 return candidate;
             }
         }
-        // Fallback to root if neither exists (will likely be created there)
         return this.join('Sablonlar');
     }
 }
@@ -92,7 +86,7 @@ class StorageManager {
 
     // Settings that are synced but NOT encrypted
     static get SYNC_ONLY_KEYS() {
-        return ['theme', 'font', 'accent_color', 'sidebar_color'];
+        return ['theme', 'font', 'accent_color', 'sidebar_color', 'report_config'];
     }
 
     static get(key, defaultValue = null) {
@@ -126,7 +120,7 @@ class StorageManager {
         }
     }
 
-    static set(key, value) {
+    static set(key, value, skipCloudSync = false) {
         try {
             let saveValue = value;
             if (this.ENCRYPTED_KEYS.includes(key)) {
@@ -140,10 +134,18 @@ class StorageManager {
                 saveValue = JSON.stringify(value);
             }
 
+            const oldValue = localStorage.getItem(key);
             localStorage.setItem(key, saveValue);
 
+            // Store local timestamp for conflict resolution
+            const now = Date.now();
+            localStorage.setItem(`_ts_${key}`, now.toString());
+
             // --- AUTO CLOUD SYNC ---
-            this.syncToCloud(key, saveValue);
+            // Only sync if content actually changed and skipCloudSync is false
+            if (!skipCloudSync && saveValue !== oldValue) {
+                this.syncToCloud(key, saveValue, now);
+            }
 
         } catch (e) {
             if (e.name === 'QuotaExceededError') {
@@ -155,17 +157,21 @@ class StorageManager {
     }
 
     // --- CLOUD SYNC METHODS ---
-    static async syncToCloud(key, value) {
+    static async syncToCloud(key, value, timestamp = null) {
         if (typeof firebase === 'undefined' || !firebase.auth().currentUser) return;
+        if (!navigator.onLine) return; // Don't even try if offline
         if (!this.ENCRYPTED_KEYS.includes(key) && !this.SYNC_ONLY_KEYS.includes(key)) return;
 
         const uid = firebase.auth().currentUser.uid;
+        const ts = timestamp || Date.now();
+
         try {
             await firebase.firestore().collection('users').doc(uid).collection('data').doc(key).set({
                 value: value,
+                clientUpdatedAt: ts,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            console.log(`Cloud [UP]: ${key}`);
+            }, { merge: true });
+            console.log(`Cloud [UP]: ${key} (ts: ${ts})`);
         } catch (e) {
             console.error(`Cloud Sync Failed (${key}):`, e);
         }
@@ -175,29 +181,46 @@ class StorageManager {
         if (typeof firebase === 'undefined' || !firebase.auth().currentUser) return;
         if (!navigator.onLine) return;
 
-        console.log('Sync: Checking cloud for updates...');
+        console.log('Sync: Reconciling with cloud...');
         const uid = firebase.auth().currentUser.uid;
         const allKeys = [...this.ENCRYPTED_KEYS, ...this.SYNC_ONLY_KEYS];
-        let changeCount = 0;
+        let pullCount = 0;
 
         for (const key of allKeys) {
             try {
                 const doc = await firebase.firestore().collection('users').doc(uid).collection('data').doc(key).get();
+                const localTs = parseInt(localStorage.getItem(`_ts_${key}`) || '0');
+                const localValue = localStorage.getItem(key);
+
                 if (doc.exists) {
                     const serverData = doc.data();
-                    const localValue = localStorage.getItem(key);
-                    if (serverData.value && serverData.value !== localValue) {
-                        localStorage.setItem(key, serverData.value);
-                        changeCount++;
+                    const serverTs = serverData.clientUpdatedAt || 0;
+
+                    if (serverTs > localTs) {
+                        // Cloud is newer -> Pull
+                        if (serverData.value && serverData.value !== localValue) {
+                            console.log(`Sync [DOWN]: ${key} (${serverTs} > ${localTs})`);
+                            localStorage.setItem(key, serverData.value);
+                            localStorage.setItem(`_ts_${key}`, serverTs.toString());
+                            pullCount++;
+                        }
+                    } else if (localTs > serverTs) {
+                        // Local is newer -> Push
+                        console.log(`Sync [UP-RECONCILE]: ${key} (${localTs} > ${serverTs})`);
+                        await this.syncToCloud(key, localValue, localTs);
                     }
+                } else if (localValue) {
+                    // Local exists but not on cloud -> Push
+                    console.log(`Sync [UP-INITIAL]: ${key}`);
+                    await this.syncToCloud(key, localValue, localTs);
                 }
             } catch (e) {
-                console.error(`Sync Download Error (${key}):`, e);
+                console.error(`Sync Reconciliation Error (${key}):`, e);
             }
         }
 
-        if (changeCount > 0) {
-            Toast.show('Veriler buluttan güncellendi.', 'success');
+        if (pullCount > 0) {
+            Toast.show(`${pullCount} verİ buluttan güncellendi.`, 'success');
             setTimeout(() => location.reload(), 1500);
         }
     }
@@ -236,13 +259,44 @@ class StorageManager {
     static clearAllData() {
         if (typeof ConfirmationManager !== 'undefined') {
             ConfirmationManager.show(
-                'TÜM VERİLERİNİZ SİLİNECEKTİR! Kalıcı olarak temizlenecektir. Emin misiniz?',
-                () => {
+                'TÜM VERİLERİNİZ (BULUT DAHİL) SİLİNECEKTİR! Kalıcı olarak temizlenecektir. Emin misiniz?',
+                async () => { // Async callback
+                    // 1. Bulut Verilerini Temizle
+                    try {
+                        if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+                            Toast.show('Bulut verileri temizleniyor...', 'info');
+                            const uid = firebase.auth().currentUser.uid;
+                            const allKeys = [...this.ENCRYPTED_KEYS, ...this.SYNC_ONLY_KEYS];
+
+                            // Batch delete is more efficient
+                            const batch = firebase.firestore().batch();
+                            allKeys.forEach(key => {
+                                const ref = firebase.firestore().collection('users').doc(uid).collection('data').doc(key);
+                                batch.delete(ref);
+                            });
+
+                            // 1.1. Ayrıca Global 'audit_records' koleksiyonundan bu kullanıcıya ait olanları sil
+                            const auditSnapshot = await firebase.firestore().collection('audit_records').where('userId', '==', uid).get();
+                            auditSnapshot.forEach(doc => {
+                                batch.delete(doc.ref);
+                            });
+
+                            await batch.commit();
+                            console.log('Cloud data cleared.');
+                        }
+                    } catch (e) {
+                        console.error('Cloud clear error:', e);
+                        Toast.show('Bulut silinirken hata oluştu (İnternet bağlantınızı kontrol edin).', 'warning');
+                    }
+
+                    // 2. Yerel Verileri Temizle
                     localStorage.clear();
-                    Toast.show('Tüm veriler temizlendi.', 'success');
+                    Toast.show('Tüm veriler (Yerel ve Bulut) temizlendi.', 'success');
+
+                    // 3. Yeniden Başlat
                     setTimeout(() => location.reload(), 2000);
                 },
-                'Evet, Tüm Verileri Sil'
+                'Evet, Hepsini Sil'
             );
         }
     }
@@ -259,40 +313,39 @@ const AuthManager = {
     },
 
     register: async () => {
-        const fullname = document.getElementById('reg-fullname').value.trim();
         const email = document.getElementById('reg-email').value.trim();
         const password = document.getElementById('reg-password').value;
-        const question = document.getElementById('reg-question')?.value || '';
-        const answer = document.getElementById('reg-answer')?.value.trim().toLowerCase() || '';
 
-        if (!fullname || !email || !password || !answer) {
-            Toast.show('Lütfen tüm alanları doldurunuz.', 'warning');
+        if (!email || !password) {
+            Toast.show('Lütfen e-posta ve şifre giriniz.', 'warning');
             return;
         }
 
         try {
+            // FIREBASE ONLY REGISTRATION
+            if (typeof firebase === 'undefined') throw new Error('Firebase not loaded');
+
             const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
             const user = userCredential.user;
-            await user.updateProfile({ displayName: fullname });
 
             const localUser = {
                 uid: user.uid,
-                fullname: fullname,
                 email: email,
-                password: password, // For manual recovery display
-                question: question,
-                answer: answer
+                password: password // Cache for local convenience
             };
             StorageManager.set('app_user', localUser);
-            Toast.show('Hesap oluşturuldu!', 'success');
+            sessionStorage.setItem('isLoggedIn', 'true'); // Auto-login after register
+
+            Toast.show('Hesap başarıyla oluşturuldu!', 'success');
             AuthManager.completeLogin(localUser);
+
         } catch (error) {
+            console.error('Registration Error:', error);
             if (error.code === 'auth/email-already-in-use') {
-                Toast.show('Bu e-posta adresi zaten bir hesaba kayıtlı. Lütfen giriş yapın.', 'info');
+                Toast.show('Bu e-posta zaten kayıtlı. Giriş yapmayı deneyin.', 'warning');
                 AuthManager.showScreen('login');
-                // Mevcut e-postayı giriş ekranına taşıyalım (opsiyonel ama iyi olur)
-                const loginEmail = document.getElementById('login-email');
-                if (loginEmail) loginEmail.value = email;
+            } else if (error.code === 'auth/network-request-failed') {
+                Toast.show('İnternet bağlantısı yok. Kayıt için internet gereklidir.', 'error');
             } else {
                 Toast.show('Kayıt Hatası: ' + error.message, 'error');
             }
@@ -310,28 +363,46 @@ const AuthManager = {
                 return;
             }
 
-            const userCredential = await firebase.auth().signInWithEmailAndPassword(emailInput, passwordInput);
-            const user = userCredential.user;
-
-            // Sync with local data
-            const localUser = StorageManager.get('app_user') || {};
-            localUser.uid = user.uid;
-            localUser.fullname = user.displayName || localUser.fullname || 'Kullanıcı';
-            localUser.email = user.email;
-
-            StorageManager.set('app_user', localUser);
-            sessionStorage.setItem('isLoggedIn', 'true');
-
-            if (errorMsg) errorMsg.style.display = 'none';
-            AuthManager.completeLogin(localUser);
-        } catch (e) {
-            const errorMsg = document.getElementById('login-error');
-            if (errorMsg) {
-                errorMsg.style.display = 'block';
-                errorMsg.textContent = 'Giriş başarısız: ' + e.message;
-            } else {
-                Toast.show('Giriş başarısız.', 'error');
+            // FIREBASE ONLY LOGIN
+            if (typeof firebase === 'undefined') {
+                Toast.show('Sistem hatası: Firebase yüklenemedi.', 'error');
+                return;
             }
+
+            try {
+                const userCredential = await firebase.auth().signInWithEmailAndPassword(emailInput, passwordInput);
+                const user = userCredential.user;
+
+                // Update Local Data (Source of Truth is now Cloud)
+                const localUser = {
+                    uid: user.uid,
+                    fullname: user.displayName || 'Kullanıcı',
+                    email: user.email,
+                    password: passwordInput, // Cache for conveniences like "Show Password" or re-auth if needed
+                    // Security question/answer is NOT here, must be fetched from Firestore if needed
+                };
+
+                // Security question/answer removed per user feedback
+
+                StorageManager.set('app_user', localUser);
+                sessionStorage.setItem('isLoggedIn', 'true');
+
+                if (errorMsg) errorMsg.style.display = 'none';
+                AuthManager.completeLogin(localUser);
+                Toast.show('Giriş başarılı.', 'success');
+
+            } catch (firebaseError) {
+                console.error('Login error:', firebaseError);
+                if (errorMsg) {
+                    errorMsg.style.display = 'block';
+                    errorMsg.textContent = 'Giriş başarısız: ' + (firebaseError.message || 'Hata');
+                } else {
+                    Toast.show('Giriş başarısız: ' + firebaseError.code, 'error');
+                }
+            }
+        } catch (e) {
+            console.error('Critical login error:', e);
+            Toast.show('Giriş işleminde kritik hata.', 'error');
         }
     },
 
@@ -347,48 +418,45 @@ const AuthManager = {
     logout: async () => {
         try {
             if (typeof firebase !== 'undefined') await firebase.auth().signOut();
+
+            // Clean Session
             sessionStorage.removeItem('isLoggedIn');
-            StorageManager.set('app_user', null);
+            sessionStorage.removeItem('initialSyncDone');
+
+            // Optional: Clear local user to force fresh login next time
+            // StorageManager.set('app_user', null); 
+
             location.reload();
         } catch (e) {
+            console.error('Logout error:', e);
             location.reload();
         }
     },
 
-    checkRecoveryUser: () => {
+    checkRecoveryUser: async () => {
         const email = document.getElementById('forgot-username').value.trim();
-        const user = AuthManager.getUser();
-
-        if (user && user.email === email) {
-            document.getElementById('forgot-step-1').style.display = 'none';
-            document.getElementById('forgot-step-2').style.display = 'block';
-            document.getElementById('recovery-question-display').textContent = user.question || 'Güvenlik Sorusu';
-        } else {
-            Toast.show('Kullanıcı bulunamadı. Lütfen kayıtlı e-postanızı girin.', 'error');
+        if (!email) {
+            Toast.show('Lütfen e-posta adresinizi girin.', 'warning');
+            return;
         }
-    },
 
-    resetPassword: async () => {
-        const answer = document.getElementById('forgot-answer').value.trim().toLowerCase();
-        const newPass = document.getElementById('new-password').value;
-        const user = AuthManager.getUser();
+        if (typeof firebase === 'undefined') {
+            Toast.show('Sistem hatası: Firebase yüklenemedi.', 'error');
+            return;
+        }
 
-        if (user && user.answer === answer) {
-            try {
-                // If the user's secret matches, we update the local password first
-                user.password = newPass;
-                StorageManager.set('app_user', user);
-
-                // Note: Firebase password update requires recent login normally.
-                // However, since this is a local recovery workaround for desktop, 
-                // we tell the user to try login with new password.
-                Toast.show('Şifre yerel olarak güncellendi. Giriş yapmayı deneyin.', 'success');
-                setTimeout(() => location.reload(), 1500);
-            } catch (e) {
-                Toast.show('Güncelleme hatası: ' + e.message, 'error');
+        try {
+            await firebase.auth().sendPasswordResetEmail(email);
+            Toast.show('Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.', 'success');
+            // Back to login after a short delay
+            setTimeout(() => AuthManager.showScreen('login'), 3000);
+        } catch (error) {
+            console.error('Reset email error:', error);
+            if (error.code === 'auth/user-not-found') {
+                Toast.show('Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.', 'error');
+            } else {
+                Toast.show('Hata: ' + error.message, 'error');
             }
-        } else {
-            Toast.show('Cevap hatalı!', 'error');
         }
     },
 

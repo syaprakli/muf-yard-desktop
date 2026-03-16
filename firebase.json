@@ -1,0 +1,40 @@
+{
+    "hosting": {
+        "public": ".",
+        "ignore": [
+            "node_modules/**",
+            "**/.*",
+            "dist/**",
+            "main.js",
+            "preload.js",
+            "package.json",
+            "package-lock.json",
+            "electron-builder",
+            "*.bat",
+            "*.py",
+            "*.backup",
+            "*.backup_*",
+            "build_log.txt",
+            "exclude_list.txt",
+            "test_*.js",
+            "create_template.js",
+            "generate_templates.js",
+            "app_exports.js",
+            "check_electron.js",
+            "diff_checker.py",
+            "yedek_*.json",
+            "AI_Context/**"
+        ],
+        "headers": [
+            {
+                "source": "**/*.@(js|css|html)",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-cache"
+                    }
+                ]
+            }
+        ]
+    }
+}

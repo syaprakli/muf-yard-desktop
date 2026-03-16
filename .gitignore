@@ -14,7 +14,6 @@ AI_Context/
 Raporlar/
 Dosyalar/
 Yedekler/
-Sablonlar/*/
 !Sablonlar/README.md
 
 # Logs and SQLite (if any)
